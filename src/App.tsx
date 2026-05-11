@@ -185,11 +185,19 @@ export default function App() {
             <div>
               <p className="text-slate-900 font-black mb-1 flex items-center gap-2">
                 <span className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center text-[8px]">2</span>
-                CONFIGURARE AUTH
+                CONFIGURARE AUTH (SUPABASE)
               </p>
-              <p>• Mergi la Authentication &rarr; Providers</p>
-              <p>• Activează Google & introdu Client ID/Secret</p>
-              <p>• Authentication &rarr; Settings &rarr; Dezactivează "Confirm Email" pentru testări rapide</p>
+              <p>• Authentication &rarr; Providers &rarr; Activează Google</p>
+              <p>• Authentication &rarr; Settings &rarr; Dezactivează "Confirm Email"</p>
+            </div>
+            <div>
+              <p className="text-slate-900 font-black mb-1 flex items-center gap-2">
+                <span className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center text-[8px]">3</span>
+                DEPLOY PE NETLIFY
+              </p>
+              <p>• Site Settings &rarr; Environment variables</p>
+              <p>• Adaugă VITE_SUPABASE_URL și VITE_SUPABASE_ANON_KEY</p>
+              <p>• Mergi la Deploys &rarr; Trigger deploy &rarr; Clear cache and deploy</p>
             </div>
           </div>
         </div>

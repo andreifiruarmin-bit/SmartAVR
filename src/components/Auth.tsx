@@ -18,23 +18,34 @@ export const Auth: React.FC = () => {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         
-        // Test account fallback: if login fails because user doesn't exist, sign them up
-        if (error && (error.message.includes('Invalid login credentials') || error.status === 400) && email === 'test@smartavr.pro') {
+        // Custom check for the test account to auto-create it if it doesn't exist
+        if (error && (error.message.includes('Invalid login credentials') || error.status === 400) && email === 'test.smartavr@gmail.com') {
           const { error: signUpError } = await supabase.auth.signUp({ email, password });
-          if (signUpError) throw signUpError;
-          // Retry login after signup
-          const { error: secondLoginError } = await supabase.auth.signInWithPassword({ email, password });
-          if (secondLoginError) throw secondLoginError;
+          if (signUpError) {
+            if (signUpError.message.includes('rate limit')) {
+              throw new Error('Supabase a limitat viteza. Te rog așteaptă 60 de secunde înainte de a încerca din nou.');
+            }
+            throw signUpError;
+          }
+          setError('Contul de test a fost creat! Încearcă să te loghezi din nou peste 1 minut (limită de viteză Supabase).');
         } else if (error) {
+          if (error.message.includes('rate limit')) {
+            throw new Error('Prea multe încercări. Așteaptă 1 minut sau mărește limita în Supabase (Auth -> Settings -> Rate Limits).');
+          }
           throw error;
         }
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes('rate limit')) {
+            throw new Error('Limită de viteză atinsă. Așteaptă un minut.');
+          }
+          throw error;
+        }
         if (data.user && data.session) {
           // Success
         } else {
-          alert('Cont creat! Te rugăm să verifici email-ul pentru confirmare. Dacă nu primești nimic, verifică în dashboard-ul Supabase dacă "Confirm Email" este activat.');
+          alert('Cont creat! Verifică email-ul. Dacă nu primești nimic, mergi la Supabase -> Authentication -> Settings -> Dezactivează "Confirm Email".');
         }
       }
     } catch (err: any) {
@@ -64,7 +75,7 @@ export const Auth: React.FC = () => {
   };
 
   const useTestAccount = () => {
-    setEmail('test@smartavr.pro');
+    setEmail('test.smartavr@gmail.com');
     setPassword('parola123456');
     setIsLogin(true);
   };
