@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Saving, SavingType, Currency } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { CURRENCY_SYMBOLS } from '../constants';
-import { Trash2, Landmark, Coins, TrendingUp, Wallet, ArrowRight, Layers, FileText, Home } from 'lucide-react';
+import { Trash2, Landmark, Coins, TrendingUp, Wallet, ArrowRight, Layers, FileText, Home, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Filter, ArrowUpRight, Search, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SavingsListProps {
@@ -11,6 +11,9 @@ interface SavingsListProps {
   filter: { type?: SavingType; currency?: Currency } | null;
   onClearFilter: () => void;
 }
+
+type SortField = 'amount' | 'type' | 'date' | 'name';
+type SortDirection = 'asc' | 'desc';
 
 const TYPE_ICONS: Record<string, any> = {
   [SavingType.DEPOSIT]: Landmark,
@@ -22,164 +25,507 @@ const TYPE_ICONS: Record<string, any> = {
   [SavingType.CASH_RESERVE]: Wallet,
 };
 
-export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, filter, onClearFilter }) => {
-  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
 
-  if (savings.length === 0 && !filter) {
+const rowVariants = {
+  hidden: { opacity: 0, x: -10 },
+  visible: { 
+    opacity: 1, 
+    x: 0,
+    transition: { type: 'spring' as const, bounce: 0.2 }
+  }
+};
+
+export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, filter, onClearFilter }) => {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateRange, setDateRange] = useState<'all' | '30days' | 'thisYear'>('all');
+
+  const filteredAndSortedSavings = useMemo(() => {
+    let result = [...savings];
+
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(s => 
+        s.name.toLowerCase().includes(term) || 
+        (s as any).bankName?.toLowerCase().includes(term)
+      );
+    }
+
+    // Date range filter
+    if (dateRange !== 'all') {
+      const now = Date.now();
+      const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+      const beginningOfYear = new Date(new Date().getFullYear(), 0, 1).getTime();
+
+      if (dateRange === '30days') {
+        result = result.filter(s => (s.createdAt || 0) >= thirtyDaysAgo);
+      } else if (dateRange === 'thisYear') {
+        result = result.filter(s => (s.createdAt || 0) >= beginningOfYear);
+      }
+    }
+
+    return result.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'amount':
+          comparison = a.amount - b.amount;
+          break;
+        case 'type':
+          comparison = (a.type || '').localeCompare(b.type || '');
+          break;
+        case 'name':
+          comparison = (a.name || '').localeCompare(b.name || '');
+          break;
+        case 'date':
+        default:
+          comparison = (a.createdAt || 0) - (b.createdAt || 0);
+          break;
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [savings, searchTerm, dateRange, sortField, sortDirection]);
+
+  const handleReset = () => {
+    setSearchTerm('');
+    setDateRange('all');
+    onClearFilter();
+  };
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  if (savings.length === 0 && !filter && !searchTerm && dateRange === 'all') {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">Lista este goală</h2>
-        <p className="text-slate-500">Adaugă prima ta economie pentru a o vedea aici.</p>
-      </div>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col items-center justify-center py-32 text-center"
+      >
+        <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6 border border-slate-100">
+          <Layers className="w-8 h-8 text-slate-300" />
+        </div>
+        <h2 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tight">Lista este goală</h2>
+        <p className="text-slate-500 font-medium">Adaugă prima ta economie pentru a începe monitorizarea.</p>
+      </motion.div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between mb-4 px-2">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
-            <div className="w-1.5 h-5 bg-primary rounded-full" />
-            Economii Active
+    <div className="space-y-8">
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6"
+      >
+        <div className="flex flex-col gap-1.5 flex-1 w-full">
+          <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 flex items-center gap-3">
+            <div className="w-2 h-6 bg-primary rounded-full shadow-lg shadow-primary/30" />
+            Portofoliu Active
           </h2>
-          {filter && (
-            <div className="flex items-center gap-2 mt-1 px-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Filtrează după:</span>
-              {filter.type && (
-                <span className="px-2 py-0.5 bg-primary/10 text-primary text-[9px] font-black rounded-md uppercase flex items-center gap-1">
-                  {React.createElement(TYPE_ICONS[filter.type] || Wallet, { className: "w-2.5 h-2.5" })}
-                  {filter.type}
-                </span>
+          
+          <div className="mt-4 flex flex-col md:flex-row gap-4 w-full">
+            {/* Search Input */}
+            <div className="relative flex-1 group">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                <Search className="w-4 h-4" />
+              </div>
+              <input 
+                type="text"
+                placeholder="Caută după nume sau bancă..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-all"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               )}
-              {filter.currency && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-black rounded-md uppercase">{filter.currency}</span>}
+            </div>
+
+            {/* Date Filte */}
+            <div className="flex items-center gap-1 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto scrollbar-hide shrink-0">
               <button 
-                onClick={onClearFilter}
-                className="text-[9px] font-black text-slate-400 hover:text-primary uppercase ml-1"
+                onClick={() => setDateRange('all')}
+                className={cn(
+                  "px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                  dateRange === 'all' ? "bg-slate-900 text-white shadow-md font-bold" : "text-slate-400 hover:text-slate-900"
+                )}
               >
-                Șterge
+                Toate
+              </button>
+              <button 
+                onClick={() => setDateRange('30days')}
+                className={cn(
+                  "px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                  dateRange === '30days' ? "bg-slate-900 text-white shadow-md font-bold" : "text-slate-400 hover:text-slate-900"
+                )}
+              >
+                Ult. 30 zile
+              </button>
+              <button 
+                onClick={() => setDateRange('thisYear')}
+                className={cn(
+                  "px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                  dateRange === 'thisYear' ? "bg-slate-900 text-white shadow-md font-bold" : "text-slate-400 hover:text-slate-900"
+                )}
+              >
+                Anul curent
               </button>
             </div>
-          )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            {(filter || searchTerm || dateRange !== 'all') ? (
+              <>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Filtre active:</span>
+                <AnimatePresence mode="popLayout">
+                  {filter?.type && (
+                    <motion.span 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      className="px-3 py-1.5 bg-primary text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-primary/20"
+                    >
+                      {React.createElement(TYPE_ICONS[filter.type] || Wallet, { className: "w-3 h-3" })}
+                      {filter.type}
+                    </motion.span>
+                  )}
+                  {filter?.currency && (
+                    <motion.span 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      className="px-3 py-1.5 bg-slate-900 text-white text-[9px] font-black rounded-xl uppercase shadow-lg shadow-slate-900/10"
+                    >
+                      {filter.currency}
+                    </motion.span>
+                  )}
+                  {searchTerm && (
+                    <motion.span 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      className="px-3 py-1.5 bg-indigo-500 text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                    >
+                      <Search className="w-3 h-3" />
+                      "{searchTerm}"
+                    </motion.span>
+                  )}
+                  {dateRange !== 'all' && (
+                    <motion.span 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      className="px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                    >
+                      <Calendar className="w-3 h-3" />
+                      {dateRange === '30days' ? 'Ult. 30 zile' : 'Anul curent'}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+                <button 
+                  onClick={handleReset}
+                  className="text-[9px] font-black text-slate-900 hover:text-primary uppercase ml-2 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+                >
+                  Resetează tot
+                </button>
+              </>
+            ) : (
+               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Istoric tranzacții și dețineri</span>
+            )}
+          </div>
         </div>
-        <span className="text-[10px] bg-white border border-slate-200 px-3 py-1 rounded-full text-slate-400 font-black uppercase tracking-widest shadow-sm">
-          {savings.length} {savings.length === 1 ? 'activ' : 'active'}
-        </span>
-      </div>
+
+        {/* Advanced Sorting UI */}
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 lg:block hidden">Sortează după:</p>
+          <div className="flex items-center gap-2 bg-white/50 p-1.5 rounded-2xl border border-slate-200 shadow-sm w-full lg:w-auto">
+            <button
+              onClick={() => toggleSort('date')}
+              className={cn(
+                "flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                sortField === 'date' ? "bg-slate-900 text-white shadow-md scale-105" : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              Dată {sortField === 'date' && (sortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+            </button>
+            <button
+              onClick={() => toggleSort('amount')}
+              className={cn(
+                "flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                sortField === 'amount' ? "bg-slate-900 text-white shadow-md scale-105" : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              Valoare {sortField === 'amount' && (sortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+            </button>
+            <button
+              onClick={() => toggleSort('type')}
+              className={cn(
+                "flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                sortField === 'type' ? "bg-slate-900 text-white shadow-md scale-105" : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Tip {sortField === 'type' && (sortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+            </button>
+          </div>
+        </div>
+      </motion.div>
 
       {savings.length === 0 ? (
-        <div className="bg-white rounded-[2.5rem] p-12 text-center border border-slate-200 shadow-sm">
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-sm mb-4">Niciun rezultat pentru acest filtru</p>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-[3rem] p-16 text-center border border-slate-200 shadow-sm"
+        >
+          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Filter className="w-8 h-8 text-slate-200" />
+          </div>
+          <p className="text-slate-900 font-black uppercase tracking-widest text-sm mb-4">Niciun rezultat pentru acest filtru</p>
           <button 
-            onClick={onClearFilter}
-            className="text-primary font-black uppercase tracking-widest text-xs hover:underline"
+            onClick={handleReset}
+            className="text-primary font-black uppercase tracking-widest text-xs hover:bg-primary/5 px-6 py-3 rounded-2xl transition-all"
           >
-            Vezi toate economiile
+            Vezi tot portofoliul
           </button>
-        </div>
+        </motion.div>
       ) : (
-        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden p-6 md:p-8">
-        <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full text-left min-w-[600px]">
-            <thead className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-              <tr>
-                <th className="pb-4 pr-4">Produs / Asset</th>
-                <th className="pb-4 px-4">Instituție</th>
-                <th className="pb-4 px-4">Suma Deținută</th>
-                <th className="pb-4 px-4">Performanță</th>
-                <th className="pb-4 pl-4 text-right">Acțiuni</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {savings.map((s) => {
-                const Icon = TYPE_ICONS[s.type] || Wallet;
-                return (
-                  <motion.tr
-                    key={s.id}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="group"
-                  >
-                    <td className="py-5 pr-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white group-hover:shadow-lg group-hover:shadow-primary/30 transition-all duration-300">
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-extrabold text-slate-900">{s.name}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Icon className="w-3 h-3 text-slate-300" />
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-tighter">{s.type}</p>
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="bg-white rounded-[2.5rem] lg:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden p-3 sm:p-6 lg:p-10 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500"
+        >
+          {/* Mobile View - Card Layout */}
+          <div className="lg:hidden space-y-4">
+            {filteredAndSortedSavings.map((s) => {
+              const Icon = TYPE_ICONS[s.type] || Wallet;
+              return (
+                <motion.div
+                  key={s.id}
+                  variants={rowVariants}
+                  className="bg-slate-50/50 border border-slate-100 rounded-3xl p-5 group flex flex-col gap-4 relative overflow-hidden"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-primary shadow-sm shadow-primary/5">
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-base font-black text-slate-900">{s.name}</p>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{s.type}</p>
+                      </div>
+                    </div>
+                    
+                    <AnimatePresence mode="wait">
+                      {confirmDeleteId === s.id ? (
+                        <motion.div 
+                          key="confirm-mobile"
+                          initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                          animate={{ opacity: 1, scale: 1, x: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                          className="flex items-center gap-2"
+                        >
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="h-12 w-12 flex items-center justify-center text-[10px] font-black uppercase text-slate-400 bg-white border border-slate-100 rounded-2xl shadow-sm"
+                          >
+                            X
+                          </button>
+                          <button
+                            onClick={() => {
+                              onDelete(s.id);
+                              setConfirmDeleteId(null);
+                            }}
+                            className="h-12 px-6 flex items-center justify-center text-[10px] font-black uppercase bg-red-600 text-white rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all"
+                          >
+                            Elimină
+                          </button>
+                        </motion.div>
+                      ) : (
+                        <motion.button
+                          key="delete-btn-mobile"
+                          onClick={() => setConfirmDeleteId(s.id)}
+                          className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-red-500 bg-white border border-slate-100 rounded-2xl transition-all shadow-sm active:scale-95"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-200/50">
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Valoare</p>
+                      <p className="font-black text-base text-slate-900">{formatCurrency(s.amount, s.currency)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Randament</p>
+                      {s.type === SavingType.DEPOSIT && (s as any).interestRate ? (
+                        <p className="text-emerald-600 font-black text-sm">+{ (s as any).interestRate}% P.A.</p>
+                      ) : (
+                        <p className="text-slate-500 font-bold text-sm italic uppercase">Variabil</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                      {(s as any).bankName || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Desktop View - Table Layout */}
+          <div className="hidden lg:block overflow-x-auto scrollbar-hide">
+            <table className="w-full text-left min-w-[700px]">
+              <thead className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+                <tr>
+                  <th className="pb-6 pr-4">Active / Instrument</th>
+                  <th className="pb-6 px-4">Instituție / Locație</th>
+                  <th className="pb-6 px-4">Sumă Deținută</th>
+                  <th className="pb-6 px-4">Randament</th>
+                  <th className="pb-6 pl-4 text-right">Acțiuni</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredAndSortedSavings.map((s) => {
+                  const Icon = TYPE_ICONS[s.type] || Wallet;
+                  return (
+                    <motion.tr
+                      key={s.id}
+                      variants={rowVariants}
+                      className="group hover:bg-slate-50/50 transition-colors"
+                    >
+                      <td className="py-6 pr-4">
+                        <div className="flex items-center gap-5">
+                          <div className="w-14 h-14 rounded-[1.25rem] bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white group-hover:shadow-xl group-hover:shadow-primary/30 group-hover:-rotate-3 transition-all duration-500">
+                            <Icon className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-base font-black text-slate-900 group-hover:text-primary transition-colors">{s.name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Icon className="w-3.5 h-3.5 text-slate-300" />
+                              <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{s.type}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-5 px-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        {(s as any).bankName || (s.type === SavingType.GOLD ? 'SAFE' : 'PERSOANĂ')}
-                      </p>
-                    </td>
-                    <td className="py-5 px-4 font-black text-sm text-slate-900">
-                      {formatCurrency(s.amount, s.currency)}
-                    </td>
-                    <td className="py-5 px-4">
-                      {s.type === SavingType.DEPOSIT && (s as any).interestRate ? (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black border border-emerald-100">
-                           +{(s as any).interestRate}% <span className="italic opacity-60">AN</span>
+                      </td>
+                      <td className="py-6 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-200 group-hover:bg-primary transition-colors" />
+                          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 group-hover:text-slate-900 transition-colors">
+                            {(s as any).bankName || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
+                          </p>
                         </div>
-                      ) : (
-                        <span className="text-[10px] font-bold text-slate-300 italic uppercase">Variabil</span>
-                      )}
-                    </td>
-                    <td className="py-5 pl-4 text-right">
-                      <AnimatePresence mode="wait">
-                        {confirmDeleteId === s.id ? (
-                          <motion.div 
-                            key="confirm"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            className="flex items-center justify-end gap-2"
-                          >
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              className="text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 px-2 py-1"
-                            >
-                              Nu
-                            </button>
-                            <button
-                              onClick={() => {
-                                onDelete(s.id);
-                                setConfirmDeleteId(null);
-                              }}
-                              className="text-[10px] font-black uppercase bg-red-500 text-white px-3 py-1.5 rounded-lg shadow-lg shadow-red-500/20"
-                            >
-                              Da, Șterge
-                            </button>
-                          </motion.div>
+                      </td>
+                      <td className="py-6 px-4">
+                        <div className="flex flex-col">
+                          <span className="font-black text-base text-slate-900 tracking-tight">
+                            {formatCurrency(s.amount, s.currency)}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 tracking-tighter">Valoare Contabilizată</span>
+                        </div>
+                      </td>
+                      <td className="py-6 px-4">
+                        {s.type === SavingType.DEPOSIT && (s as any).interestRate ? (
+                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black border border-emerald-100 shadow-sm group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
+                            <TrendingUp className="w-3 h-3" />
+                            +{(s as any).interestRate}% <span className="italic opacity-60">P.A.</span>
+                          </div>
                         ) : (
-                          <motion.button
-                            key="delete-btn"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => setConfirmDeleteId(s.id)}
-                            className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </motion.button>
+                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black border border-slate-200">
+                            <ArrowUpRight className="w-3 h-3" />
+                            <span className="italic uppercase">Variabil</span>
+                          </div>
                         )}
-                      </AnimatePresence>
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                      </td>
+                      <td className="py-6 pl-4 text-right">
+                        <AnimatePresence mode="wait">
+                          {confirmDeleteId === s.id ? (
+                            <motion.div 
+                              key="confirm"
+                              initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                              animate={{ opacity: 1, scale: 1, x: 0 }}
+                              exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                              className="flex items-center justify-end gap-2"
+                            >
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 px-3 py-2 bg-slate-50 rounded-xl transition-all"
+                              >
+                                Anulează
+                              </button>
+                              <button
+                                onClick={() => {
+                                  onDelete(s.id);
+                                  setConfirmDeleteId(null);
+                                }}
+                                className="text-[10px] font-black uppercase bg-red-600 text-white px-4 py-2 rounded-xl shadow-lg shadow-red-600/30 hover:bg-red-700 transition-all active:scale-95"
+                              >
+                                Confirmă
+                              </button>
+                            </motion.div>
+                          ) : (
+                            <motion.button
+                              key="delete-btn"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              whileHover={{ scale: 1.1, rotate: 8 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => setConfirmDeleteId(s.id)}
+                              className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all duration-300"
+                              aria-label="Șterge active"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
       )}
     </div>
   );
 };
+
+// Helper function for class merging
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}

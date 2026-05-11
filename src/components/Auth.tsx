@@ -10,6 +10,17 @@ export const Auth: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('smartavr_remember_me') !== 'false';
+  });
+
+  React.useEffect(() => {
+    const savedEmail = localStorage.getItem('smartavr_saved_email');
+    if (savedEmail && rememberMe) {
+      setEmail(savedEmail);
+    }
+  }, []);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -29,10 +40,22 @@ export const Auth: React.FC = () => {
           }
           setError('Contul de test a fost creat! Încearcă să te loghezi din nou peste 1 minut (limită de viteză Supabase).');
         } else if (error) {
+          if (error.message.includes('email_not_confirmed')) {
+            throw new Error('E-mailul nu este confirmat. Verifică Inbox sau mergi la Supabase Dashboard -> Auth -> Settings și dezactivează "Confirm Email".');
+          }
           if (error.message.includes('rate limit')) {
             throw new Error('Prea multe încercări. Așteaptă 1 minut sau mărește limita în Supabase (Auth -> Settings -> Rate Limits).');
           }
           throw error;
+        }
+
+        // Handle Remember Me
+        if (rememberMe) {
+          localStorage.setItem('smartavr_remember_me', 'true');
+          localStorage.setItem('smartavr_saved_email', email);
+        } else {
+          localStorage.setItem('smartavr_remember_me', 'false');
+          localStorage.removeItem('smartavr_saved_email');
         }
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password });
@@ -137,6 +160,34 @@ export const Auth: React.FC = () => {
                 required
               />
             </div>
+          </div>
+
+          <div className="flex items-center justify-between px-1 py-1">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <div className="relative flex items-center">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-200 bg-slate-50 transition-all checked:bg-primary checked:border-primary focus:outline-none"
+                />
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-900 transition-colors tracking-widest">Ține-mă minte</span>
+            </label>
+            
+            {isLogin && (
+              <button 
+                type="button" 
+                className="text-[10px] font-black uppercase text-primary hover:underline tracking-widest"
+              >
+                Ai uitat parola?
+              </button>
+            )}
           </div>
 
           <button
