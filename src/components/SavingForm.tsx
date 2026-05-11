@@ -29,48 +29,39 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel }) => {
   const [symbol, setSymbol] = useState<string>('');
   const [shares, setShares] = useState<string>('');
 
+  // Titluri de Stat shares extra fields with Deposit
+  const isSecurity = type === SavingType.BONDS || type === SavingType.DEPOSIT;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!type || !amount || !name) return;
 
-    const baseData = {
+    const baseData: any = {
       id: crypto.randomUUID(),
       type,
       amount: parseFloat(amount),
       currency,
       name,
       createdAt: Date.now(),
+      details: {}
     };
 
-    if (type === SavingType.DEPOSIT) {
-      const deposit: BankDeposit = {
-        ...baseData,
-        type: SavingType.DEPOSIT,
-        interestRate: parseFloat(interestRate) || 0,
-        startDate: new Date().toISOString(),
-        maturityDate: maturityDate || new Date().toISOString(),
-        isCapitalized,
-        bankName,
-      };
-      onAdd(deposit);
+    if (type === SavingType.DEPOSIT || type === SavingType.BONDS) {
+      baseData.interestRate = parseFloat(interestRate) || 0;
+      baseData.maturityDate = maturityDate;
+      if (type === SavingType.DEPOSIT) {
+        baseData.isCapitalized = isCapitalized;
+        baseData.bank = bankName;
+      }
     } else if (type === SavingType.GOLD) {
-      const gold: GoldSaving = {
-        ...baseData,
-        type: SavingType.GOLD,
-        weightInGrams: parseFloat(weight) || 0,
-      };
-      onAdd(gold);
+      baseData.weightInGrams = parseFloat(weight) || 0;
     } else if (type === SavingType.STOCKS || type === SavingType.ETF) {
-      const stock: StockSaving = {
-        ...baseData,
-        type: type === SavingType.STOCKS ? SavingType.STOCKS : SavingType.ETF as any,
-        symbol: symbol.toUpperCase(),
-        shares: parseFloat(shares) || 0,
-      };
-      onAdd(stock);
-    } else {
-      onAdd(baseData);
+      baseData.symbol = symbol.toUpperCase();
+      baseData.shares = parseFloat(shares) || 0;
+      baseData.bank = bankName; // Broker
     }
+
+    onAdd(baseData);
   };
 
   return (
@@ -159,6 +150,64 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel }) => {
                 </div>
               )}
 
+              {/* Deposit & Bonds Specific Fields */}
+              {(type === SavingType.DEPOSIT || type === SavingType.BONDS) && (
+                <div className="space-y-4 pt-4 mt-2 border-t border-slate-800">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-slate-500">
+                        {type === SavingType.DEPOSIT ? 'Dobândă (% an)' : 'Cupon / Dobândă (% an)'}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={interestRate}
+                        onChange={(e) => setInterestRate(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-black text-white placeholder:text-slate-600"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-slate-500">Data Scadență</label>
+                      <input
+                        type="date"
+                        value={maturityDate}
+                        onChange={(e) => setMaturityDate(e.target.value)}
+                        className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none text-slate-300 font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {type === SavingType.DEPOSIT && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase text-slate-500">Bancă (opțional)</label>
+                        <input
+                          type="text"
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          placeholder="BT, BCR, ING, Revolut"
+                          className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none text-white placeholder:text-slate-600"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-3 py-2">
+                        <input
+                          type="checkbox"
+                          id="capitalized"
+                          checked={isCapitalized}
+                          onChange={(e) => setIsCapitalized(e.target.checked)}
+                          className="w-5 h-5 accent-primary rounded-md cursor-pointer"
+                        />
+                        <label htmlFor="capitalized" className="text-xs font-bold text-slate-400 uppercase tracking-wide cursor-pointer select-none">
+                          Se capitalizează dobânda
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Stock/ETF Specific */}
               {(type === SavingType.STOCKS || type === SavingType.ETF) && (
                 <div className="space-y-4 pt-4 mt-2 border-t border-slate-800">
@@ -185,57 +234,15 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel }) => {
                       />
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Deposit Specific Fields */}
-              {type === SavingType.DEPOSIT && (
-                <div className="space-y-4 pt-4 mt-2 border-t border-slate-800">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase text-slate-500">Dobândă (% an)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={interestRate}
-                        onChange={(e) => setInterestRate(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-black text-white placeholder:text-slate-600"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase text-slate-500">Data Scadență</label>
-                      <input
-                        type="date"
-                        value={maturityDate}
-                        onChange={(e) => setMaturityDate(e.target.value)}
-                        className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none text-slate-300 font-bold"
-                      />
-                    </div>
-                  </div>
-
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-500">Bancă (opțional)</label>
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Broker (opțional)</label>
                     <input
                       type="text"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
-                      placeholder="BT, BCR, ING, Revolut"
+                      placeholder="Tradeville, Interactive Brokers, Revolut"
                       className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none text-white placeholder:text-slate-600"
                     />
-                  </div>
-
-                  <div className="flex items-center gap-3 py-2">
-                    <input
-                      type="checkbox"
-                      id="capitalized"
-                      checked={isCapitalized}
-                      onChange={(e) => setIsCapitalized(e.target.checked)}
-                      className="w-5 h-5 accent-primary rounded-md cursor-pointer"
-                    />
-                    <label htmlFor="capitalized" className="text-xs font-bold text-slate-400 uppercase tracking-wide cursor-pointer select-none">
-                      Se capitalizează dobânda
-                    </label>
                   </div>
                 </div>
               )}

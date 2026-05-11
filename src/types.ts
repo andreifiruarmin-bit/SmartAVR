@@ -1,14 +1,13 @@
 export type Currency = 'RON' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'XAU';
 
 export enum SavingType {
-  DEPOSIT = 'Deposit Bancar',
+  DEPOSIT = 'Depozit Bancar',
   GOLD = 'Aur',
   STOCKS = 'Acțiuni',
   ETF = 'ETF',
   BONDS = 'Titluri de Stat',
   RENT = 'Chirii',
-  CASH_RESERVE = 'Rezervă Cash',
-  OTHER = 'Altele'
+  CASH_RESERVE = 'Rezervă Cash'
 }
 
 export interface BaseSaving {
@@ -16,17 +15,17 @@ export interface BaseSaving {
   type: SavingType;
   amount: number;
   currency: Currency;
-  name: string; // e.g., "Depozit BCR", "Acțiuni Apple"
+  name: string;
   createdAt: number;
+  bank?: string;
+  details?: Record<string, any>;
 }
 
 export interface BankDeposit extends BaseSaving {
   type: SavingType.DEPOSIT;
-  interestRate: number; // yearly percentage
-  startDate: string;
+  interestRate: number;
   maturityDate: string;
-  isCapitalized: boolean; // if interest is added to the principal
-  bankName?: string;
+  isCapitalized: boolean;
 }
 
 export interface CashReserve extends BaseSaving {

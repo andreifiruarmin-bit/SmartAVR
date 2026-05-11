@@ -13,8 +13,10 @@ interface DashboardProps {
     totalInBase: number;
     byCurrency: Record<string, number>;
     byType: Record<string, number>;
+    averageYield: number;
   };
   onSliceClick: (filter: { type?: SavingType; currency?: Currency }) => void;
+  loading?: boolean;
 }
 
 const COLORS = ['#f43e01', '#10b981', '#f59e0b', '#6366f1', '#1e293b', '#94a3b8'];
@@ -64,7 +66,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, onSliceClick }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, onSliceClick, loading }) => {
   const [selectedCurrency, setSelectedCurrency] = useState<Currency | 'ALL'>('ALL');
   const [displayCurrencyMode, setDisplayCurrencyMode] = useState<'RON' | 'EUR'>('RON');
 
@@ -134,17 +136,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
           const baseRON = convertToRON(s.amount, s.currency, rates);
           totalPortfolioRON += baseRON;
 
-          if (s.type === SavingType.DEPOSIT) {
-            const dep = s as BankDeposit;
-            const startDate = new Date(dep.startDate).getTime();
+          if (s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) {
+            const dep = s as any;
+            const startDate = dep.startDate ? new Date(dep.startDate).getTime() : (s.createdAt || timestamp);
             
-            // If the deposit had started by this time
+            // If the deposit/bond had started by this time
             if (startDate <= timestamp) {
               const daysAccrued = Math.max(0, (timestamp - startDate) / (1000 * 60 * 60 * 24));
-              const yearlyRate = dep.interestRate / 100;
+              const yearlyRate = (dep.interestRate || 0) / 100;
               // Interest after 10% tax
               const accruedInterest = baseRON * yearlyRate * (daysAccrued / 365) * 0.9;
-              totalDepositsValueRON += (baseRON + accruedInterest);
+              
+              if (s.type === SavingType.DEPOSIT) {
+                totalDepositsValueRON += (baseRON + accruedInterest);
+              }
+              
               // Add interest to the total portfolio view as well
               totalPortfolioRON += accruedInterest;
             }
@@ -171,17 +177,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
   }, [portfolioHistory]);
 
   const weeklyPerformance = useMemo(() => {
-    const base = totals.totalInBase / 1.05;
+    const yieldFactor = 1 + (totals.averageYield / 100);
+    const base = totals.totalInBase / yieldFactor;
+    
+    // Smooth growth simulation if yield is available, else near flat
+    const steps = [
+      0, 
+      totals.averageYield * 0.2, 
+      totals.averageYield * 0.15, 
+      totals.averageYield * 0.5, 
+      totals.averageYield * 0.6, 
+      totals.averageYield * 0.9, 
+      totals.averageYield
+    ];
+
     return [
-      { day: 'Lun', val: base },
-      { day: 'Mar', val: base * 1.01 },
-      { day: 'Mie', val: base * 1.005 },
-      { day: 'Joi', val: base * 1.025 },
-      { day: 'Vin', val: base * 1.03 },
-      { day: 'Sâm', val: base * 1.045 },
+      { day: 'Lun', val: base * (1 + (steps[0] / 100)) },
+      { day: 'Mar', val: base * (1 + (steps[1] / 100)) },
+      { day: 'Mie', val: base * (1 + (steps[2] / 100)) },
+      { day: 'Joi', val: base * (1 + (steps[3] / 100)) },
+      { day: 'Vin', val: base * (1 + (steps[4] / 100)) },
+      { day: 'Sâm', val: base * (1 + (steps[5] / 100)) },
       { day: 'Dum', val: totals.totalInBase },
     ];
-  }, [totals.totalInBase]);
+  }, [totals.totalInBase, totals.averageYield]);
+
+  const hasDeposits = (totals.byType[SavingType.DEPOSIT] || 0) > 0;
+  const hasCash = (totals.byType[SavingType.CASH_RESERVE] || 0) > 0;
+  const hasYield = totals.averageYield > 0;
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-40">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full mb-4"
+        />
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">Sincronizare active...</p>
+      </div>
+    );
+  }
 
   if (savings.length === 0) {
     return (
@@ -357,98 +393,112 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
         </motion.div>
 
         {/* Small Highlight Cards Container */}
-        <div className="lg:col-span-4 grid grid-cols-1 gap-6">
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -5 }}
-            style={{ y: parallaxY1 }}
-            className="bg-primary p-8 rounded-[3rem] shadow-xl shadow-primary/20 text-white flex flex-col justify-between relative overflow-hidden group border border-primary/20"
-          >
-            <div className="z-10">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="w-3 h-3 text-white/60" />
-                <p className="text-white/80 text-[10px] font-black uppercase tracking-widest">Lichidități</p>
-              </div>
-              <h3 className="text-4xl font-black tracking-tight">
-                {formatCurrency(totals.byType[SavingType.CASH_RESERVE] || 0, 'RON')}
-              </h3>
-            </div>
-            <div className="flex justify-end z-10 mt-6 lg:mt-0">
-              <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md border border-white/10 group-hover:scale-110 transition-transform duration-500">
-                <Wallet className="w-6 h-6" />
-              </div>
-            </div>
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700" />
-          </motion.div>
-
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -5 }}
-            style={{ y: parallaxY2 }}
-            className="bg-slate-900 p-8 rounded-[3rem] shadow-xl shadow-slate-900/10 text-white flex flex-col justify-between border border-slate-800 relative group overflow-hidden"
-          >
-            <div className="z-10">
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Depozite Bancare</p>
-              <h3 className="text-4xl font-black tracking-tight">
-                {formatCurrency(totals.byType[SavingType.DEPOSIT] || 0, 'RON')}
-              </h3>
-            </div>
-            <div className="flex items-center gap-2 mt-4 z-10">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depozite Active</p>
-              <ArrowUpRight className="w-3 h-3 text-slate-600 ml-auto group-hover:text-white transition-colors" />
-            </div>
-            <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
-          </motion.div>
-
-          {/* Performance Card */}
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ y: -5 }}
-            className="bg-white p-6 md:p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between group overflow-hidden"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Indicator Randament (7z)</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tighter">
-                    +{formatCurrency(totals.totalInBase * 0.05, 'RON')}
-                  </h3>
-                  <span className="text-[10px] font-black text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-lg">+5.0%</span>
+        {(hasCash || hasDeposits || hasYield) && (
+          <div className="lg:col-span-4 grid grid-cols-1 gap-6">
+            {hasCash && (
+              <motion.div 
+                variants={itemVariants}
+                whileHover={{ y: -5 }}
+                className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between relative group transition-all duration-500"
+              >
+                <div className="flex justify-between items-start z-10">
+                  <div className="p-3 bg-primary rounded-2xl group-hover:ring-4 group-hover:ring-primary/20 transition-all duration-500">
+                    <Wallet className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Rezervă Cash</p>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">
+                      {formatCurrency(totals.byType[SavingType.CASH_RESERVE] || 0, 'RON')}
+                    </h3>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3 bg-emerald-50 rounded-2xl group-hover:bg-emerald-500 group-hover:text-white transition-all duration-500">
-                <TrendingUp className="w-5 h-5 text-emerald-500 group-hover:text-white" />
-              </div>
-            </div>
-            
-            <div className="h-20 w-full mt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={weeklyPerformance}>
-                  <defs>
-                    <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area 
-                    type="monotone" 
-                    dataKey="val" 
-                    stroke="#10b981" 
-                    strokeWidth={4} 
-                    fillOpacity={1} 
-                    fill="url(#colorVal)"
-                    animationDuration={2500}
-                  />
-                  <Tooltip 
-                    content={() => null}
-                    cursor={{ stroke: '#f1f5f9', strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
-        </div>
+                <div className="flex items-center gap-2 mt-6 z-10">
+                  <div className="w-2 h-2 rounded-full bg-primary/20" />
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fond de urgență</p>
+                </div>
+              </motion.div>
+            )}
+
+            {hasDeposits && (
+              <motion.div 
+                variants={itemVariants}
+                whileHover={{ y: -5 }}
+                className="bg-slate-900 p-8 rounded-[3rem] shadow-xl shadow-slate-900/10 text-white flex flex-col justify-between border border-slate-800 relative group overflow-hidden transition-all duration-500"
+              >
+                <div className="z-10">
+                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Depozite Bancare</p>
+                  <h3 className="text-4xl font-black tracking-tight">
+                    {formatCurrency(totals.byType[SavingType.DEPOSIT] || 0, 'RON')}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2 mt-4 z-10">
+                  <div className="p-2 bg-white/5 rounded-xl group-hover:ring-4 group-hover:ring-white/10 transition-all duration-500">
+                    <Landmark className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active acum</p>
+                  <ArrowUpRight className="w-3 h-3 text-slate-600 ml-auto group-hover:text-white transition-colors" />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Performance Card */}
+            {hasYield && (
+              <motion.div 
+                variants={itemVariants}
+                whileHover={{ y: -5 }}
+                className="bg-white p-6 md:p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between group overflow-hidden"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Indicator Randament (7z)</p>
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-2xl font-black text-slate-900 tracking-tighter">
+                        {totals.averageYield > 0 ? '+' : ''}{formatCurrency(totals.totalInBase * (totals.averageYield / 100), 'RON')}
+                      </h3>
+                      <span 
+                        className={cn(
+                          "text-[10px] font-black px-2 py-0.5 rounded-lg",
+                          totals.averageYield > 0 ? "text-emerald-500 bg-emerald-50" : "text-slate-400 bg-slate-100"
+                        )}
+                      >
+                        {totals.averageYield > 0 ? '+' : ''}{totals.averageYield.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-emerald-50 rounded-2xl group-hover:ring-4 group-hover:ring-emerald-500/20 transition-all duration-500">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  </div>
+                </div>
+                
+                <div className="h-20 w-full mt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={weeklyPerformance}>
+                      <defs>
+                        <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <Area 
+                        type="monotone" 
+                        dataKey="val" 
+                        stroke="#10b981" 
+                        strokeWidth={4} 
+                        fillOpacity={1} 
+                        fill="url(#colorVal)"
+                        animationDuration={2500}
+                      />
+                      <Tooltip 
+                        content={() => null}
+                        cursor={{ stroke: '#f1f5f9', strokeWidth: 2 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* New Project Evolution Chart */}
@@ -470,10 +520,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
               <div className="w-3 h-3 rounded-full bg-primary" />
               <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Portofoliu</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-emerald-500" />
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Depozite + Dobândă</span>
-            </div>
+            {hasDeposits && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Depozite + Dobândă</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -501,10 +553,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                             <span className="text-[10px] font-black text-primary uppercase">Total:</span>
                             <span className="text-sm font-black text-white">{formatCurrency(payload[0].value as number, 'RON')}</span>
                           </div>
-                          <div className="flex items-center justify-between gap-8">
-                            <span className="text-[10px] font-black text-emerald-400 uppercase">Depozite:</span>
-                            <span className="text-sm font-black text-white">{formatCurrency(payload[1].value as number, 'RON')}</span>
-                          </div>
+                          {hasDeposits && payload[1] && (
+                            <div className="flex items-center justify-between gap-8">
+                              <span className="text-[10px] font-black text-emerald-400 uppercase">Depozite:</span>
+                              <span className="text-sm font-black text-white">{formatCurrency(payload[1].value as number, 'RON')}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -521,104 +575,108 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                 fill="url(#colorTotal)"
                 animationDuration={2000}
               />
-              <Area 
-                type="monotone" 
-                dataKey="deposits" 
-                stroke="#10b981" 
-                strokeWidth={4} 
-                fillOpacity={1} 
-                fill="url(#colorDeposits)"
-                animationDuration={2500}
-              />
+              {hasDeposits && (
+                <Area 
+                  type="monotone" 
+                  dataKey="deposits" 
+                  stroke="#10b981" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorDeposits)"
+                  animationDuration={2500}
+                />
+              )}
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </motion.div>
 
       {/* Detailed Bank Deposits Evolution Chart */}
-      <motion.div 
-        variants={itemVariants}
-        className="bg-slate-900 p-6 md:p-10 rounded-[3rem] border border-slate-800 shadow-2xl relative overflow-hidden group transition-all duration-500"
-      >
-        <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4 relative z-10">
-          <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-400 flex items-center gap-3 mb-2">
-              <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/30" />
-              Focus: Depozite Bancare
-            </h4>
-            <h3 className="text-2xl font-black text-white tracking-tighter">Evoluție Dobândă Netă</h3>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Proiecție acumulată pe 12 luni (taxare 10% inclusă)</p>
+      {hasDeposits && (
+        <motion.div 
+          variants={itemVariants}
+          className="bg-slate-900 p-6 md:p-10 rounded-[3rem] border border-slate-800 shadow-2xl relative overflow-hidden group transition-all duration-500"
+        >
+          <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4 relative z-10">
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-400 flex items-center gap-3 mb-2">
+                <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/30" />
+                Focus: Depozite Bancare
+              </h4>
+              <h3 className="text-2xl font-black text-white tracking-tighter">Evoluție Dobândă Netă</h3>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Proiecție acumulată pe 12 luni (taxare 10% inclusă)</p>
+            </div>
+            <div className="p-4 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
+               <Landmark className="w-6 h-6 text-emerald-500" />
+            </div>
           </div>
-          <div className="p-4 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
-             <Landmark className="w-6 h-6 text-emerald-500" />
-          </div>
-        </div>
 
-        <div className="h-80 w-full relative z-10">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={depositsHistory} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#64748b', fontSize: 9, fontWeight: 900 }} 
-                dy={10}
-              />
-              <YAxis 
-                hide 
-                domain={['auto', 'auto']}
-              />
-              <Tooltip 
-                cursor={{ stroke: '#10b981', strokeWidth: 2, strokeDasharray: '5 5' }}
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div className="bg-white p-5 rounded-[2rem] shadow-2xl border border-slate-100 flex flex-col gap-3 min-w-[200px]">
-                        <div className="flex justify-between items-center pb-2 border-b border-slate-50">
-                          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{data.fullDate}</p>
-                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="h-80 w-full relative z-10">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={depositsHistory} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#64748b', fontSize: 9, fontWeight: 900 }} 
+                  dy={10}
+                />
+                <YAxis 
+                  hide 
+                  domain={['auto', 'auto']}
+                />
+                <Tooltip 
+                  cursor={{ stroke: '#10b981', strokeWidth: 2, strokeDasharray: '5 5' }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-white p-5 rounded-[2rem] shadow-2xl border border-slate-100 flex flex-col gap-3 min-w-[200px]">
+                          <div className="flex justify-between items-center pb-2 border-b border-slate-50">
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{data.fullDate}</p>
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valoare Depozite + Dobândă</p>
+                            <p className="text-xl font-black text-slate-900 tracking-tighter">
+                              {formatCurrency(payload[0].value as number, 'RON')}
+                            </p>
+                          </div>
+                          <div className="pt-2">
+                             <div className="flex items-center gap-2 text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl uppercase tracking-tighter w-fit">
+                               <TrendingUp className="w-3 h-3" />
+                               Include 10% Impozit Reținut
+                             </div>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valoare Depozite + Dobândă</p>
-                          <p className="text-xl font-black text-slate-900 tracking-tighter">
-                            {formatCurrency(payload[0].value as number, 'RON')}
-                          </p>
-                        </div>
-                        <div className="pt-2">
-                           <div className="flex items-center gap-2 text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl uppercase tracking-tighter w-fit">
-                             <TrendingUp className="w-3 h-3" />
-                             Include 10% Impozit Reținut
-                           </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="netValue" 
-                stroke="#10b981" 
-                strokeWidth={6} 
-                dot={{ fill: '#10b981', r: 5, strokeWidth: 3, stroke: '#fff' }}
-                activeDot={{ 
-                  r: 10, 
-                  strokeWidth: 4, 
-                  stroke: 'rgba(16, 185, 129, 0.2)',
-                  fill: '#10b981'
-                }}
-                animationDuration={3000}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
-          <TrendingUp className="w-64 h-64 text-white" />
-        </div>
-      </motion.div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="netValue" 
+                  stroke="#10b981" 
+                  strokeWidth={6} 
+                  dot={{ fill: '#10b981', r: 5, strokeWidth: 3, stroke: '#fff' }}
+                  activeDot={{ 
+                    r: 10, 
+                    strokeWidth: 4, 
+                    stroke: 'rgba(16, 185, 129, 0.2)',
+                    fill: '#10b981'
+                  }}
+                  animationDuration={3000}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
+            <TrendingUp className="w-64 h-64 text-white" />
+          </div>
+        </motion.div>
+      )}
 
       {/* Currency Details List (Stats Grid) */}
       <motion.div 

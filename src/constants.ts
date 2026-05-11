@@ -22,7 +22,6 @@ export const SAVING_OPTIONS = [
   { type: SavingType.GOLD, icon: Gem, label: 'Aur' },
   { type: SavingType.BONDS, icon: FileText, label: 'Titluri Stat' },
   { type: SavingType.RENT, icon: Home, label: 'Chirii' },
-  { type: SavingType.OTHER, icon: PlusCircle, label: 'Altele' },
 ];
 
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {

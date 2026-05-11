@@ -81,15 +81,15 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 | :--- | :--- | :--- |
 | `id` | uuid (PK) | Identificator unic |
 | `user_id` | uuid (FK) | Legătura cu auth.users |
-| `type` | text | Tip (Depozit, Aur, Acțiuni, etc.) |
-| `title` | text | Numele activului |
+| `type` | text | Tip (Depozit Bancar, Rezervă Cash, Acțiuni, ETF, Aur, Titluri de Stat, Chirii) |
+| `name` | text | Numele activului |
 | `amount` | numeric | Suma investită |
 | `currency` | text | RON, EUR, USD, etc. |
-| `interest_rate` | numeric | Dobânda anuală (pentru depozite/bonds) |
+| `interest_rate` | numeric | Dobânda anuală (Depozit / Titluri Stat) |
 | `maturity_date` | date | Data scadenței |
 | `capitalized` | boolean | Dacă dobânda se adaugă la principal |
 | `bank` | text | Numele băncii / brokerului |
-| `notes` | text | Notițe adiționale |
+| `details` | jsonb | Informații specifice (simbol, nr. acțiuni, greutate, etc.) |
 | `created_at` | timestamp | Data adăugării |
 | `updated_at` | timestamp | Data ultimei modificări |
 - **RLS:** `(role = 'authenticated')` -> utilizatorul poate accesa doar rândurile unde `user_id = auth.uid()`.

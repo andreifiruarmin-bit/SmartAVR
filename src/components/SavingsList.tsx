@@ -59,7 +59,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, fil
       const term = searchTerm.toLowerCase();
       result = result.filter(s => 
         s.name.toLowerCase().includes(term) || 
-        (s as any).bankName?.toLowerCase().includes(term)
+        (s.bank || (s as any).bankName)?.toLowerCase().includes(term)
       );
     }
 
@@ -385,20 +385,21 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, fil
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Valoare</p>
                       <p className="font-black text-base text-slate-900">{formatCurrency(s.amount, s.currency)}</p>
                     </div>
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Randament</p>
-                      {s.type === SavingType.DEPOSIT && (s as any).interestRate ? (
-                        <p className="text-emerald-600 font-black text-sm">+{ (s as any).interestRate}% P.A.</p>
-                      ) : (
-                        <p className="text-slate-500 font-bold text-sm italic uppercase">Variabil</p>
-                      )}
-                    </div>
+                      {/* Value & Yield */}
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Randament</p>
+                        {(s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) && (s as any).interestRate ? (
+                          <p className="text-emerald-600 font-black text-sm">+{ (s as any).interestRate}% P.A.</p>
+                        ) : (
+                          <p className="text-slate-500 font-bold text-sm italic uppercase">Variabil</p>
+                        )}
+                      </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-                      {(s as any).bankName || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
+                      {s.bank || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
                     </p>
                   </div>
                 </motion.div>
@@ -445,7 +446,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, fil
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-slate-200 group-hover:bg-primary transition-colors" />
                           <p className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 group-hover:text-slate-900 transition-colors">
-                            {(s as any).bankName || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
+                            {s.bank || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
                           </p>
                         </div>
                       </td>
@@ -458,7 +459,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, fil
                         </div>
                       </td>
                       <td className="py-6 px-4">
-                        {s.type === SavingType.DEPOSIT && (s as any).interestRate ? (
+                        {(s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) && (s as any).interestRate ? (
                           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black border border-emerald-100 shadow-sm group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
                             <TrendingUp className="w-3 h-3" />
                             +{(s as any).interestRate}% <span className="italic opacity-60">P.A.</span>

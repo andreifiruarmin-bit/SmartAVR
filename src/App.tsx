@@ -22,6 +22,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [savings, setSavings] = useState<Saving[]>([]);
+  const [savingsLoading, setSavingsLoading] = useState(true);
   const [rates, setRates] = useState<Record<string, number>>(DEFAULT_RATES);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +62,7 @@ export default function App() {
     }
 
     const fetchSavings = async () => {
+      setSavingsLoading(true);
       const { data, error } = await supabase
         .from('savings_products')
         .select('*')
@@ -69,8 +71,19 @@ export default function App() {
       if (error) {
         console.error('Supabase fetch error:', error);
       } else {
-        setSavings(data as unknown as Saving[]);
+        const mappedData = data.map((item: any) => {
+          return {
+            ...item,
+            interestRate: item.interest_rate,
+            maturityDate: item.maturity_date,
+            isCapitalized: item.capitalized,
+            createdAt: new Date(item.created_at).getTime(),
+            ...(item.details || {})
+          };
+        });
+        setSavings(mappedData as unknown as Saving[]);
       }
+      setSavingsLoading(false);
     };
 
     fetchSavings();
@@ -96,22 +109,36 @@ export default function App() {
   const addSaving = async (newSaving: any) => {
     if (!user) return;
     try {
+      // Map frontend fields to Supabase schema based on user standardization
+      const payload: any = {
+        id: newSaving.id,
+        user_id: user.id,
+        name: newSaving.name,
+        type: newSaving.type,
+        currency: newSaving.currency,
+        amount: newSaving.amount,
+        interest_rate: newSaving.interestRate || null,
+        maturity_date: newSaving.maturityDate || null,
+        capitalized: newSaving.isCapitalized ?? null,
+        bank: newSaving.bank || newSaving.bankName || null,
+        details: {
+          shares: newSaving.shares,
+          symbol: newSaving.symbol,
+          weightInGrams: newSaving.weightInGrams,
+          startDate: newSaving.startDate,
+          ...(newSaving.details || {})
+        }
+      };
+
       const { error } = await supabase
         .from('savings_products')
-        .upsert({ 
-          id: newSaving.id,
-          user_id: user.id, 
-          name: newSaving.name,
-          type: newSaving.type,
-          currency: newSaving.currency,
-          amount: newSaving.amount,
-          details: newSaving.details || {}
-        });
+        .upsert(payload);
       
       if (error) throw error;
       setIsModalOpen(false);
     } catch (error) {
       console.error('Failed to add saving:', error);
+      alert('Eroare la salvare: ' + (error instanceof Error ? error.message : 'Eroare necunoscută'));
     }
   };
 
@@ -131,6 +158,7 @@ export default function App() {
 
   const totals = useMemo(() => {
     let totalInBase = 0;
+    let weightedYieldSum = 0;
     const byCurrency: Record<string, number> = {};
     const byType: Record<string, number> = {};
 
@@ -138,11 +166,16 @@ export default function App() {
       const ronValue = convertToRON(s.amount, s.currency, rates);
       totalInBase += ronValue;
       
+      const yieldRate = (s as any).interestRate || 0;
+      weightedYieldSum += ronValue * (yieldRate / 100);
+
       byCurrency[s.currency] = (byCurrency[s.currency] || 0) + ronValue;
       byType[s.type] = (byType[s.type] || 0) + ronValue;
     });
 
-    return { totalInBase, byCurrency, byType };
+    const averageYield = totalInBase > 0 ? (weightedYieldSum / totalInBase) * 100 : 0;
+
+    return { totalInBase, byCurrency, byType, averageYield };
   }, [savings, rates]);
 
   const filteredSavings = useMemo(() => {
@@ -298,6 +331,7 @@ export default function App() {
                 totals={totals}
                 rates={rates}
                 onSliceClick={handleDashboardFilter}
+                loading={savingsLoading}
               />
             </motion.div>
           ) : (
