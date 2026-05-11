@@ -29,9 +29,13 @@ export const Auth: React.FC = () => {
           throw error;
         }
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert('Cont creat! Verifică email-ul pentru confirmare.');
+        if (data.user && data.session) {
+          // Success
+        } else {
+          alert('Cont creat! Te rugăm să verifici email-ul pentru confirmare. Dacă nu primești nimic, verifică în dashboard-ul Supabase dacă "Confirm Email" este activat.');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Eroare la autentificare');
@@ -48,15 +52,20 @@ export const Auth: React.FC = () => {
           redirectTo: window.location.origin,
         }
       });
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('provider is not enabled')) {
+          throw new Error('Autentificarea cu Google nu este activată în Supabase Dashboard (Authentication -> Providers).');
+        }
+        throw error;
+      }
     } catch (err: any) {
       setError(err.message);
     }
   };
 
   const useTestAccount = () => {
-    setEmail('tester_7a2b@smartavr.test');
-    setPassword('A9x!2Pz8qL');
+    setEmail('test@smartavr.pro');
+    setPassword('parola123456');
     setIsLogin(true);
   };
 
@@ -145,6 +154,12 @@ export const Auth: React.FC = () => {
           >
             <Chrome className="w-4 h-4 text-primary" />
             Continuă cu Google
+          </button>
+          <button
+            onClick={useTestAccount}
+            className="w-full py-2 text-[10px] font-black uppercase text-slate-300 hover:text-slate-400 transition-all tracking-widest"
+          >
+            Folosește cont de test
           </button>
         </div>
 

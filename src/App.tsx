@@ -172,11 +172,25 @@ export default function App() {
           <p className="text-slate-500 font-bold text-sm leading-relaxed mb-8">
             Pentru a folosi SmartAVR, trebuie să configurezi variabilele de mediu <span className="text-primary">VITE_SUPABASE_URL</span> și <span className="text-primary">VITE_SUPABASE_ANON_KEY</span>.
           </p>
-          <div className="bg-slate-50 p-6 rounded-2xl text-left font-mono text-[10px] text-slate-400 space-y-2 border border-slate-100">
-            <p>1. Mergi la Supabase Dashboard</p>
-            <p>2. Settings &rarr; API</p>
-            <p>3. Copiază Project URL &amp; anon key</p>
-            <p>4. Adaugă-le în setările aplicației</p>
+          <div className="bg-slate-50 p-6 rounded-2xl text-left font-mono text-[10px] text-slate-400 space-y-3 border border-slate-100">
+            <div>
+              <p className="text-slate-900 font-black mb-1 flex items-center gap-2">
+                <span className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center text-[8px]">1</span>
+                CONEXIUNE BAZĂ DE DATE
+              </p>
+              <p>• Mergi la Settings &rarr; API</p>
+              <p>• Project URL (fără /rest/v1 la final)</p>
+              <p>• anon public key</p>
+            </div>
+            <div>
+              <p className="text-slate-900 font-black mb-1 flex items-center gap-2">
+                <span className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center text-[8px]">2</span>
+                CONFIGURARE AUTH
+              </p>
+              <p>• Mergi la Authentication &rarr; Providers</p>
+              <p>• Activează Google & introdu Client ID/Secret</p>
+              <p>• Authentication &rarr; Settings &rarr; Dezactivează "Confirm Email" pentru testări rapide</p>
+            </div>
           </div>
         </div>
       </div>
