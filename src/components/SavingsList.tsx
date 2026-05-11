@@ -1,5 +1,5 @@
 import React from 'react';
-import { Saving, SavingType } from '../types';
+import { Saving, SavingType, Currency } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { CURRENCY_SYMBOLS } from '../constants';
 import { Trash2, Landmark, Coins, TrendingUp, Wallet, ArrowRight, Layers, FileText, Home } from 'lucide-react';
@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'motion/react';
 interface SavingsListProps {
   savings: Saving[];
   onDelete: (id: string) => void;
+  filter: { type?: SavingType; currency?: Currency } | null;
+  onClearFilter: () => void;
 }
 
 const TYPE_ICONS: Record<string, any> = {
@@ -20,10 +22,10 @@ const TYPE_ICONS: Record<string, any> = {
   [SavingType.CASH_RESERVE]: Wallet,
 };
 
-export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete }) => {
+export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, filter, onClearFilter }) => {
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
 
-  if (savings.length === 0) {
+  if (savings.length === 0 && !filter) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">Lista este goală</h2>
@@ -35,16 +37,47 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete }) =
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-4 px-2">
-        <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
-          <div className="w-1.5 h-5 bg-primary rounded-full" />
-          Economii Active
-        </h2>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
+            <div className="w-1.5 h-5 bg-primary rounded-full" />
+            Economii Active
+          </h2>
+          {filter && (
+            <div className="flex items-center gap-2 mt-1 px-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Filtrează după:</span>
+              {filter.type && (
+                <span className="px-2 py-0.5 bg-primary/10 text-primary text-[9px] font-black rounded-md uppercase flex items-center gap-1">
+                  {React.createElement(TYPE_ICONS[filter.type] || Wallet, { className: "w-2.5 h-2.5" })}
+                  {filter.type}
+                </span>
+              )}
+              {filter.currency && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-black rounded-md uppercase">{filter.currency}</span>}
+              <button 
+                onClick={onClearFilter}
+                className="text-[9px] font-black text-slate-400 hover:text-primary uppercase ml-1"
+              >
+                Șterge
+              </button>
+            </div>
+          )}
+        </div>
         <span className="text-[10px] bg-white border border-slate-200 px-3 py-1 rounded-full text-slate-400 font-black uppercase tracking-widest shadow-sm">
-          {savings.length} Active
+          {savings.length} {savings.length === 1 ? 'activ' : 'active'}
         </span>
       </div>
-      
-      <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden p-6 md:p-8">
+
+      {savings.length === 0 ? (
+        <div className="bg-white rounded-[2.5rem] p-12 text-center border border-slate-200 shadow-sm">
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-sm mb-4">Niciun rezultat pentru acest filtru</p>
+          <button 
+            onClick={onClearFilter}
+            className="text-primary font-black uppercase tracking-widest text-xs hover:underline"
+          >
+            Vezi toate economiile
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden p-6 md:p-8">
         <div className="overflow-x-auto scrollbar-hide">
           <table className="w-full text-left min-w-[600px]">
             <thead className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
@@ -73,7 +106,10 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete }) =
                         </div>
                         <div>
                           <p className="text-sm font-extrabold text-slate-900">{s.name}</p>
-                          <p className="text-[10px] font-black uppercase text-slate-400 tracking-tighter mt-0.5">{s.type}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Icon className="w-3 h-3 text-slate-300" />
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-tighter">{s.type}</p>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -143,6 +179,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete }) =
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 };

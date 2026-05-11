@@ -24,6 +24,7 @@ export default function App() {
   const [rates, setRates] = useState<Record<string, number>>(DEFAULT_RATES);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [listFilter, setListFilter] = useState<{ type?: SavingType; currency?: Currency } | null>(null);
 
   // Handle Auth
   useEffect(() => {
@@ -95,6 +96,22 @@ export default function App() {
 
     return { totalInBase, byCurrency, byType };
   }, [savings, rates]);
+
+  const filteredSavings = useMemo(() => {
+    if (!listFilter) return savings;
+    return savings.filter(s => {
+      if (listFilter.type && s.type !== listFilter.type) return false;
+      if (listFilter.currency && s.currency !== listFilter.currency) return false;
+      return true;
+    });
+  }, [savings, listFilter]);
+
+  const handleDashboardFilter = (filter: { type?: SavingType; currency?: Currency }) => {
+    setListFilter(filter);
+    setActiveTab('list');
+  };
+
+  const clearFilters = () => setListFilter(null);
 
   if (authLoading) {
     return (
@@ -169,34 +186,37 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-6">
-        <AnimatePresence mode="wait">
-          {activeTab === 'dashboard' ? (
-            <motion.div
-              key="dashboard"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-            >
-              <Dashboard 
-                savings={savings} 
-                totals={totals}
-                rates={rates}
-              />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="list"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-            >
-              <SavingsList 
-                savings={savings} 
-                onDelete={deleteSaving}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+            <AnimatePresence mode="wait">
+              {activeTab === 'dashboard' ? (
+                <motion.div
+                  key="dashboard"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <Dashboard 
+                    savings={savings} 
+                    totals={totals}
+                    rates={rates}
+                    onSliceClick={handleDashboardFilter}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="list"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <SavingsList 
+                    savings={filteredSavings} 
+                    onDelete={deleteSaving}
+                    filter={listFilter}
+                    onClearFilter={clearFilters}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
       </main>
 
       {/* Navigation Mobile */}
