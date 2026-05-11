@@ -1,0 +1,6 @@
+{
+  "name": "SmartAVR",
+  "description": "O aplicație financiară inteligentă pentru monitorizarea economiilor și investițiilor, cu vizualizări detaliate pentru depozite bancare, acțiuni, aur și rezerve de cash.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
