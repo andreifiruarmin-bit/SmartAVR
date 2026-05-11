@@ -26,38 +26,42 @@ export function convertToRON(amount: number, currency: string, rates: Record<str
 }
 
 export async function fetchLiveRates() {
-  const sources = [
-    'https://open.er-api.com/v6/latest/RON',
-    'https://api.frankfurter.app/latest?from=RON'
-  ];
+  try {
+    const response = await fetch('/.netlify/functions/exchange-rates');
+    if (!response.ok) throw new Error('Failed to fetch from function');
+    const data = await response.json();
+    return data.rates as Record<string, number>;
+  } catch (error) {
+    console.warn('Netlify function failed, using client-side fallback:', error);
+    const sources = [
+      'https://open.er-api.com/v6/latest/RON',
+      'https://api.frankfurter.app/latest?from=RON'
+    ];
 
-  for (const url of sources) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) continue;
-      
-      const data = await response.json();
-      const rates: Record<string, number> = { RON: 1 };
-      
-      // Handle Open ER API format (rates are relative to base, so 1 USD = X RON means 1 unit in RON = X)
-      // Wait, Open ER API /latest/RON returns rates where base=RON, so 1 RON = X EUR.
-      // We want 1 EUR = ? RON.
-      if (data.rates) {
-        Object.entries(data.rates).forEach(([cur, val]) => {
-          if (cur !== 'RON') {
-            rates[cur] = 1 / (val as number);
+    for (const url of sources) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) continue;
+        
+        const data = await response.json();
+        const rates: Record<string, number> = { RON: 1 };
+        
+        if (data.rates) {
+          Object.entries(data.rates).forEach(([cur, val]) => {
+            if (cur !== 'RON') {
+              rates[cur] = 1 / (val as number);
+            }
+          });
+
+          if (!rates['XAU']) {
+            rates['XAU'] = 280;
           }
-        });
 
-        // XAU (Gold) fallback if not present
-        if (!rates['XAU']) {
-          rates['XAU'] = 280; // Default fallback for 1g
+          return rates;
         }
-
-        return rates;
+      } catch (err) {
+        console.warn(`Failed to fetch from ${url}:`, err);
       }
-    } catch (error) {
-      console.warn(`Failed to fetch from ${url}:`, error);
     }
   }
 

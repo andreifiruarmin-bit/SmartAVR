@@ -5,17 +5,18 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Wallet, PieChart as PieChartIcon, List, TrendingUp, Landmark, Coins, Layers, FileText, Home, PlusCircle, ArrowUpRight, DollarSign, LogOut } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { User } from '@supabase/supabase-js';
 import { Saving, SavingType, Currency } from './types';
 import { DEFAULT_RATES, BASE_CURRENCY } from './constants';
-import { cn, formatCurrency, convertToRON, fetchLiveRates, handleFirestoreError, OperationType } from './lib/utils';
+import { cn, formatCurrency, convertToRON, fetchLiveRates } from './lib/utils';
 import { Dashboard } from './components/Dashboard';
 import { SavingsList } from './components/SavingsList';
 import { AddSavingModal } from './components/AddSavingModal';
 import { Auth } from './components/Auth';
+import { AIAssistant } from './components/AIAssistant';
+import { Navigation } from './components/Navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { auth, db } from './lib/firebase';
-import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -28,11 +29,21 @@ export default function App() {
 
   // Handle Auth
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+    if (!isSupabaseConfigured) {
+      setAuthLoading(false);
+      return;
+    }
+    
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-    return () => unsubscribe();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Fetch Live Rates
@@ -42,42 +53,79 @@ export default function App() {
     });
   }, []);
 
-  // Sync Savings from Firestore
+  // Sync Savings from Supabase
   useEffect(() => {
     if (!user) {
       setSavings([]);
       return;
     }
 
-    const q = query(collection(db, 'savings'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Saving));
-      setSavings(data);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'savings', auth);
-    });
+    const fetchSavings = async () => {
+      const { data, error } = await supabase
+        .from('savings_products')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Supabase fetch error:', error);
+      } else {
+        setSavings(data as unknown as Saving[]);
+      }
+    };
 
-    return () => unsubscribe();
+    fetchSavings();
+
+    // Real-time subscription
+    const channel = supabase
+      .channel('savings-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'savings_products', 
+        filter: `user_id=eq.${user.id}` 
+      }, () => {
+        fetchSavings();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const addSaving = async (newSaving: any) => {
     if (!user) return;
     try {
-      const savingData = { ...newSaving, userId: user.uid };
-      const docRef = doc(db, 'savings', newSaving.id);
-      await setDoc(docRef, savingData);
+      const { error } = await supabase
+        .from('savings_products')
+        .upsert({ 
+          id: newSaving.id,
+          user_id: user.id, 
+          name: newSaving.name,
+          type: newSaving.type,
+          currency: newSaving.currency,
+          amount: newSaving.amount,
+          details: newSaving.details || {}
+        });
+      
+      if (error) throw error;
       setIsModalOpen(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'savings', auth);
+      console.error('Failed to add saving:', error);
     }
   };
 
   const deleteSaving = async (id: string) => {
     if (!user) return;
     try {
-      await deleteDoc(doc(db, 'savings', id));
+      const { error } = await supabase
+        .from('savings_products')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `savings/${id}`, auth);
+      console.error('Failed to delete saving:', error);
     }
   };
 
@@ -113,6 +161,28 @@ export default function App() {
 
   const clearFilters = () => setListFilter(null);
 
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
+        <div className="max-w-md bg-white p-10 rounded-[3rem] border border-slate-200 shadow-2xl">
+          <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-amber-100">
+            <PlusCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-4 uppercase tracking-tight">Supabase nu este configurat</h2>
+          <p className="text-slate-500 font-bold text-sm leading-relaxed mb-8">
+            Pentru a folosi SmartAVR, trebuie să configurezi variabilele de mediu <span className="text-primary">VITE_SUPABASE_URL</span> și <span className="text-primary">VITE_SUPABASE_ANON_KEY</span>.
+          </p>
+          <div className="bg-slate-50 p-6 rounded-2xl text-left font-mono text-[10px] text-slate-400 space-y-2 border border-slate-100">
+            <p>1. Mergi la Supabase Dashboard</p>
+            <p>2. Settings &rarr; API</p>
+            <p>3. Copiază Project URL &amp; anon key</p>
+            <p>4. Adaugă-le în setările aplicației</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -146,18 +216,18 @@ export default function App() {
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-3 bg-white p-1.5 pr-4 rounded-full shadow-sm border border-slate-200">
               <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                {user.user_metadata?.avatar_url ? (
+                  <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <DollarSign className="w-4 h-4 text-slate-500" />
                 )}
               </div>
               <div className="text-sm">
-                <p className="font-semibold leading-none">{user.displayName || 'Utilizator'}</p>
+                <p className="font-semibold leading-none">{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Utilizator'}</p>
                 <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Profil Premium</p>
               </div>
               <button 
-                onClick={() => signOut(auth)}
+                onClick={() => supabase.auth.signOut()}
                 className="p-1.5 hover:bg-slate-50 rounded-full text-slate-400 hover:text-red-500 transition-colors"
                 title="Deconectare"
               >
@@ -176,7 +246,7 @@ export default function App() {
             </motion.button>
 
             <button 
-              onClick={() => signOut(auth)}
+              onClick={() => supabase.auth.signOut()}
               className="md:hidden p-2 bg-white border border-slate-200 rounded-full text-slate-400"
             >
               <LogOut className="w-5 h-5" />
@@ -185,101 +255,54 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6">
-            <AnimatePresence mode="wait">
-              {activeTab === 'dashboard' ? (
-                <motion.div
-                  key="dashboard"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <Dashboard 
-                    savings={savings} 
-                    totals={totals}
-                    rates={rates}
-                    onSliceClick={handleDashboardFilter}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="list"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <SavingsList 
-                    savings={filteredSavings} 
-                    onDelete={deleteSaving}
-                    filter={listFilter}
-                    onClearFilter={clearFilters}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-32">
+        <AnimatePresence mode="wait">
+          {activeTab === 'dashboard' ? (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Dashboard 
+                savings={savings} 
+                totals={totals}
+                rates={rates}
+                onSliceClick={handleDashboardFilter}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="list"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <SavingsList 
+                savings={filteredSavings} 
+                onDelete={deleteSaving}
+                filter={listFilter}
+                onClearFilter={clearFilters}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {/* Navigation Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 md:hidden flex items-center justify-around h-20 px-6 pb-2">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={cn(
-            "flex flex-col items-center gap-1.5 transition-all text-slate-400",
-            activeTab === 'dashboard' && "text-primary"
-          )}
-        >
-          <div className={cn(
-            "p-2 rounded-xl transition-all",
-            activeTab === 'dashboard' && "bg-primary/5"
-          )}>
-            <PieChartIcon className="w-6 h-6" />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider">Dashboard</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('list')}
-          className={cn(
-            "flex flex-col items-center gap-1.5 transition-all text-slate-400",
-            activeTab === 'list' && "text-primary"
-          )}
-        >
-          <div className={cn(
-            "p-2 rounded-xl transition-all",
-            activeTab === 'list' && "bg-primary/5"
-          )}>
-            <List className="w-6 h-6" />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider">Active</span>
-        </button>
-      </nav>
-
-      {/* Desktop Navigation Toggle */}
-      <div className="hidden md:flex fixed left-1/2 -translate-x-1/2 bottom-8 z-40 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full p-1.5 shadow-2xl gap-1.5 ring-1 ring-black/5">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={cn(
-            "px-8 py-2.5 rounded-full text-sm font-bold transition-all text-slate-500 hover:bg-slate-50",
-            activeTab === 'dashboard' && "bg-slate-900 text-white shadow-lg"
-          )}
-        >
-          Dashboard
-        </button>
-        <button
-          onClick={() => setActiveTab('list')}
-          className={cn(
-            "px-8 py-2.5 rounded-full text-sm font-bold transition-all text-slate-500 hover:bg-slate-50",
-            activeTab === 'list' && "bg-slate-900 text-white shadow-lg"
-          )}
-        >
-          Lista Economii
-        </button>
-      </div>
+      <Navigation 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onAddClick={() => setIsModalOpen(true)} 
+      />
 
       <AddSavingModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={addSaving}
       />
+      <AIAssistant />
     </div>
   );
 }

@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { auth, googleProvider } from '../lib/firebase';
-import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, UserPlus, Github, Chrome, Mail, Lock, ShieldCheck, ArrowRight, User } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { LogIn, Mail, Lock, ShieldCheck, ArrowRight, Chrome } from 'lucide-react';
 
 export const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -18,18 +16,22 @@ export const Auth: React.FC = () => {
     setError(null);
     try {
       if (isLogin) {
-        try {
-          await signInWithEmailAndPassword(auth, email, password);
-        } catch (err: any) {
-          // If it's the specific test account and user is not found, try to create it
-          if ((err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') && email === 'test@smartavr.pro' && password === 'SmartAVR2026!') {
-            await createUserWithEmailAndPassword(auth, email, password);
-          } else {
-            throw err;
-          }
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        
+        // Test account fallback: if login fails because user doesn't exist, sign them up
+        if (error && (error.message.includes('Invalid login credentials') || error.status === 400) && email === 'test@smartavr.pro') {
+          const { error: signUpError } = await supabase.auth.signUp({ email, password });
+          if (signUpError) throw signUpError;
+          // Retry login after signup
+          const { error: secondLoginError } = await supabase.auth.signInWithPassword({ email, password });
+          if (secondLoginError) throw secondLoginError;
+        } else if (error) {
+          throw error;
         }
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert('Cont creat! Verifică email-ul pentru confirmare.');
       }
     } catch (err: any) {
       setError(err.message || 'Eroare la autentificare');
@@ -40,7 +42,13 @@ export const Auth: React.FC = () => {
 
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        }
+      });
+      if (error) throw error;
     } catch (err: any) {
       setError(err.message);
     }
