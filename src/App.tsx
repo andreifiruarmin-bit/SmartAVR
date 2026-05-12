@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Wallet, PieChart as PieChartIcon, List, TrendingUp, Landmark, Coins, Layers, FileText, Home, PlusCircle, ArrowUpRight, DollarSign, LogOut } from 'lucide-react';
+import { Plus, Wallet, PieChart as PieChartIcon, List, TrendingUp, Landmark, Coins, Layers, FileText, Home, PlusCircle, ArrowUpRight, DollarSign, LogOut, ChevronLeft } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Saving, SavingType, Currency } from './types';
@@ -16,13 +16,20 @@ import { SavingsList } from './components/SavingsList';
 import { AddSavingModal } from './components/AddSavingModal';
 import { Auth } from './components/Auth';
 import { Navigation } from './components/Navigation';
+import { Footer } from './components/Footer';
 import { motion, AnimatePresence } from 'motion/react';
 import TermsAndConditions from './pages/TermsAndConditions';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import { BankDepositsDetail } from './pages/BankDepositsDetail';
+import { CashReserveDetail } from './pages/CashReserveDetail';
+import { GoldDetail } from './pages/GoldDetail';
+import { EquitiesDetail } from './pages/EquitiesDetail';
 
 export default function App() {
   const { isDark, toggleDark } = useDarkMode();
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'list' | 'terms' | 'privacy'>('dashboard');
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'list' | 'terms' | 'privacy' 
+             | 'detail-deposits' | 'detail-cash' 
+             | 'detail-gold' | 'detail-equities'>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [savings, setSavings] = useState<Saving[]>([]);
@@ -276,7 +283,9 @@ export default function App() {
       </div>
     );
   }
-
+  if (!user) {
+    return <Auth />;
+  }
   if (savings.length === 0) {
     return (
       <motion.div 
@@ -295,10 +304,6 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <Auth />;
-  }
-
   // Render based on current page
   if (currentPage === 'terms') {
     return <TermsAndConditions />;
@@ -306,6 +311,77 @@ export default function App() {
 
   if (currentPage === 'privacy') {
     return <PrivacyPolicy />;
+  }
+
+  if (currentPage === 'detail-deposits') {
+    return (
+      <motion.div 
+        initial={{opacity:0, x:30}} 
+        animate={{opacity:1, x:0}} 
+        exit={{opacity:0, x:-30}} 
+        transition={{duration:0.25}}
+        className="min-h-screen bg-slate-50 pb-24"
+      >
+        <BankDepositsDetail 
+          savings={savings} 
+          rates={rates} 
+          onBack={() => setCurrentPage('dashboard')} 
+        />
+      </motion.div>
+    );
+  }
+
+  if (currentPage === 'detail-cash') {
+    return (
+      <motion.div 
+        initial={{opacity:0, x:30}} 
+        animate={{opacity:1, x:0}} 
+        exit={{opacity:0, x:-30}} 
+        transition={{duration:0.25}}
+        className="min-h-screen bg-slate-50 pb-24"
+      >
+        <CashReserveDetail 
+          savings={savings} 
+          onBack={() => setCurrentPage('dashboard')} 
+        />
+      </motion.div>
+    );
+  }
+
+  if (currentPage === 'detail-gold') {
+    return (
+      <motion.div 
+        initial={{opacity:0, x:30}} 
+        animate={{opacity:1, x:0}} 
+        exit={{opacity:0, x:-30}} 
+        transition={{duration:0.25}}
+        className="min-h-screen bg-slate-50 pb-24"
+      >
+        <GoldDetail 
+          savings={savings} 
+          rates={rates} 
+          onBack={() => setCurrentPage('dashboard')} 
+        />
+      </motion.div>
+    );
+  }
+
+  if (currentPage === 'detail-equities') {
+    return (
+      <motion.div 
+        initial={{opacity:0, x:30}} 
+        animate={{opacity:1, x:0}} 
+        exit={{opacity:0, x:-30}} 
+        transition={{duration:0.25}}
+        className="min-h-screen bg-slate-50 pb-24"
+      >
+        <EquitiesDetail 
+          savings={savings} 
+          rates={rates} 
+          onBack={() => setCurrentPage('dashboard')} 
+        />
+      </motion.div>
+    );
   }
 
   return (
@@ -386,6 +462,7 @@ export default function App() {
                 rates={rates}
                 onSliceClick={handleDashboardFilter}
                 loading={savingsLoading}
+                onNavigate={(page) => setCurrentPage(page as any)}
               />
             </motion.div>
           ) : (
@@ -413,6 +490,8 @@ export default function App() {
         setActiveTab={setActiveTab} 
         onAddClick={() => setIsModalOpen(true)}
       />
+
+      <Footer setCurrentPage={setCurrentPage} />
 
       <AddSavingModal
         isOpen={isModalOpen}

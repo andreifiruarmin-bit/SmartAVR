@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowUpRight } from 'lucide-react';
 import { SavingType, Currency } from '../../types';
 import { DashboardProps } from './types';
 import { useDashboardConfig } from './hooks/useDashboardConfig';
@@ -7,6 +8,7 @@ import { useDashboardData } from './hooks/useDashboardData';
 import { usePieInteraction } from './hooks/usePieInteraction';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardConfig } from './DashboardConfig';
+import { PieChartConfig } from './PieChartConfig';
 import { PortfolioSummaryCard } from './cards/PortfolioSummaryCard';
 import { CashReserveCard } from './cards/CashReserveCard';
 import { BankDepositsCard } from './cards/BankDepositsCard';
@@ -21,13 +23,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   rates, 
   onSliceClick, 
   loading, 
-  onRatesUpdate 
+  onRatesUpdate,
+  onNavigate 
 }) => {
   const [selectedCurrency, setSelectedCurrency] = useState<Currency | 'ALL'>('ALL');
   const [displayCurrencyMode, setDisplayCurrencyMode] = useState<'RON' | 'EUR'>('RON');
   const [isRefreshingGold, setIsRefreshingGold] = useState(false);
 
   const { cardSettings, updateCardSettings, showConfig, setShowConfig, confirmHideId, setConfirmHideId } = useDashboardConfig();
+  const [showPieChartConfig, setShowPieChartConfig] = useState(false);
 
   const data = useDashboardData(savings, rates, totals, selectedCurrency, displayCurrencyMode, cardSettings);
 
@@ -47,6 +51,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setIsRefreshingGold(false);
     }
   };
+  
 
   if (loading) return <div className="flex items-center justify-center h-64">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -67,9 +72,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
         hasInvestments={data.hasInvestments}
       />
 
+      <PieChartConfig
+        isOpen={showPieChartConfig}
+        onClose={() => setShowPieChartConfig(false)}
+        cardSettings={cardSettings}
+        onUpdateCard={updateCardSettings}
+      />
+
       {/* Bento Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 md:gap-4 lg:gap-6">
-        <div className="col-span-2 lg:col-span-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="md:col-span-2">
           <PortfolioSummaryCard
             savings={savings}
             totals={totals}
@@ -86,71 +98,113 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onCurrencyChange={setSelectedCurrency}
             onDisplayModeToggle={() => setDisplayCurrencyMode(prev => prev === 'RON' ? 'EUR' : 'RON')}
             isRatesStale={isRatesStale}
+            onOpenPieChartConfig={() => setShowPieChartConfig(true)}
           />
         </div>
 
-        {(data.hasCash || data.hasDeposits || data.hasGold || data.hasInvestments) && (
-          <div className="col-span-2 lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 lg:gap-6">
-            {data.hasCash && (
-              <CashReserveCard
-                value={data.getCardValue('cash_reserve', SavingType.CASH_RESERVE)}
-                currency={cardSettings['cash_reserve'].currency}
-                activeCurrencies={data.activeCurrencies}
-                displayCurrencyMode={displayCurrencyMode}
-                isVisible={cardSettings['cash_reserve'].visible}
-                onToggleVisibility={() => updateCardSettings('cash_reserve', { visible: !cardSettings['cash_reserve'].visible })}
-                onCurrencyChange={(c) => updateCardSettings('cash_reserve', { currency: c })}
-                totals={totals}
-              />
-            )}
-            {data.hasDeposits && (
-              <BankDepositsCard
-                value={data.getCardValue('bank_deposits', SavingType.DEPOSIT)}
-                currency={cardSettings['bank_deposits'].currency}
-                activeCurrencies={data.activeCurrencies}
-                displayCurrencyMode={displayCurrencyMode}
-                averageDepositYield={totals.averageDepositYield}
-                isVisible={cardSettings['bank_deposits'].visible}
-                onToggleVisibility={() => updateCardSettings('bank_deposits', { visible: !cardSettings['bank_deposits'].visible })}
-                onCurrencyChange={(c) => updateCardSettings('bank_deposits', { currency: c })}
-                totals={totals}
-              />
-            )}
-            {data.hasGold && (
-              <GoldAssetsCard
-                value={data.getCardValue('gold_assets', SavingType.GOLD)}
-                currency={cardSettings['gold_assets'].currency}
-                activeCurrencies={data.activeCurrencies}
-                displayCurrencyMode={displayCurrencyMode}
-                goldData={data.goldData}
-                rates={rates}
-                isVisible={cardSettings['gold_assets'].visible}
-                isRefreshing={isRefreshingGold}
-                onToggleVisibility={() => updateCardSettings('gold_assets', { visible: !cardSettings['gold_assets'].visible })}
-                onCurrencyChange={(c) => updateCardSettings('gold_assets', { currency: c })}
-                onRefreshPrice={refreshGoldPrice}
-                totals={totals}
-              />
-            )}
-            {data.hasInvestments && (
-              <EquitiesCard
-                value={data.getCardValue('equities_assets', SavingType.STOCKS)}
-                currency={cardSettings['equities_assets'].currency}
-                activeCurrencies={data.activeCurrencies}
-                displayCurrencyMode={displayCurrencyMode}
-                savings={savings}
-                rates={rates}
-                isVisible={cardSettings['equities_assets'].visible}
-                onToggleVisibility={() => updateCardSettings('equities_assets', { visible: !cardSettings['equities_assets'].visible })}
-                onCurrencyChange={(c) => updateCardSettings('equities_assets', { currency: c })}
-                totals={totals}
-              />
-            )}
+        {/* Instrument Cards - Conditional Rendering with Click Navigation */}
+        {savings.some(s => s.type === 'Rezervă Cash') && (
+          <div 
+            className="relative group cursor-pointer"
+            onClick={() => onNavigate?.('detail-cash')}
+          >
+            <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 
+                 transition-opacity duration-200">
+              <div className="bg-white/20 backdrop-blur-sm rounded-full p-1.5">
+                <ArrowUpRight className="w-3.5 h-3.5 text-white" />
+              </div>
+            </div>
+            <CashReserveCard
+              value={data.getCardValue('cash_reserve', SavingType.CASH_RESERVE)}
+              currency={cardSettings['cash_reserve'].currency}
+              activeCurrencies={data.activeCurrencies}
+              displayCurrencyMode={displayCurrencyMode}
+              isVisible={cardSettings['cash_reserve'].visible}
+              onToggleVisibility={() => updateCardSettings('cash_reserve', { visible: !cardSettings['cash_reserve'].visible })}
+              onCurrencyChange={(c) => updateCardSettings('cash_reserve', { currency: c })}
+              totals={totals}
+            />
+          </div>
+        )}
+        {savings.some(s => s.type === 'Depozit Bancar') && (
+          <div 
+            className="relative group cursor-pointer"
+            onClick={() => onNavigate?.('detail-deposits')}
+          >
+            <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 
+                 transition-opacity duration-200">
+              <div className="bg-white/20 backdrop-blur-sm rounded-full p-1.5">
+                <ArrowUpRight className="w-3.5 h-3.5 text-white" />
+              </div>
+            </div>
+            <BankDepositsCard
+              value={data.getCardValue('bank_deposits', SavingType.DEPOSIT)}
+              currency={cardSettings['bank_deposits'].currency}
+              activeCurrencies={data.activeCurrencies}
+              displayCurrencyMode={displayCurrencyMode}
+              averageDepositYield={totals.averageDepositYield}
+              isVisible={cardSettings['bank_deposits'].visible}
+              onToggleVisibility={() => updateCardSettings('bank_deposits', { visible: !cardSettings['bank_deposits'].visible })}
+              onCurrencyChange={(c) => updateCardSettings('bank_deposits', { currency: c })}
+              totals={totals}
+            />
+          </div>
+        )}
+        {savings.some(s => s.type === 'Aur') && (
+          <div 
+            className="relative group cursor-pointer"
+            onClick={() => onNavigate?.('detail-gold')}
+          >
+            <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 
+                 transition-opacity duration-200">
+              <div className="bg-white/20 backdrop-blur-sm rounded-full p-1.5">
+                <ArrowUpRight className="w-3.5 h-3.5 text-white" />
+              </div>
+            </div>
+            <GoldAssetsCard
+              value={data.getCardValue('gold_assets', SavingType.GOLD)}
+              currency={cardSettings['gold_assets'].currency}
+              activeCurrencies={data.activeCurrencies}
+              displayCurrencyMode={displayCurrencyMode}
+              goldData={data.goldData}
+              rates={rates}
+              isVisible={cardSettings['gold_assets'].visible}
+              isRefreshing={isRefreshingGold}
+              onToggleVisibility={() => updateCardSettings('gold_assets', { visible: !cardSettings['gold_assets'].visible })}
+              onCurrencyChange={(c) => updateCardSettings('gold_assets', { currency: c })}
+              onRefreshPrice={refreshGoldPrice}
+              totals={totals}
+            />
+          </div>
+        )}
+        {(savings.some(s => s.type === 'Acțiuni') || savings.some(s => s.type === 'ETF')) && (
+          <div 
+            className="relative group cursor-pointer"
+            onClick={() => onNavigate?.('detail-equities')}
+          >
+            <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 
+                 transition-opacity duration-200">
+              <div className="bg-white/20 backdrop-blur-sm rounded-full p-1.5">
+                <ArrowUpRight className="w-3.5 h-3.5 text-white" />
+              </div>
+            </div>
+            <EquitiesCard
+              value={data.getCardValue('equities_assets', SavingType.STOCKS)}
+              currency={cardSettings['equities_assets'].currency}
+              activeCurrencies={data.activeCurrencies}
+              displayCurrencyMode={displayCurrencyMode}
+              savings={savings}
+              rates={rates}
+              isVisible={cardSettings['equities_assets'].visible}
+              onToggleVisibility={() => updateCardSettings('equities_assets', { visible: !cardSettings['equities_assets'].visible })}
+              onCurrencyChange={(c) => updateCardSettings('equities_assets', { currency: c })}
+              totals={totals}
+            />
           </div>
         )}
       </div>
 
-      {cardSettings['portfolio_evolution'].visible && (
+      {savings.length > 0 && cardSettings['portfolio_evolution'].visible && (
         <PortfolioEvolutionCard
           portfolioHistory={data.portfolioHistory}
           hasDeposits={data.hasDeposits}

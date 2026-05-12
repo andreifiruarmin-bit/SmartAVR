@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart as PieChartIcon, List, Plus, FileText, Shield } from 'lucide-react';
+import { PieChart as PieChartIcon, List, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -56,23 +56,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         </button>
         
 
-        {/* Legal Links - Desktop */}
-        <div className="hidden md:flex items-center gap-3">
-          <a 
-            href="/terms" 
-            className="px-3 py-1.5 rounded-lg text-xs font-black text-slate-600 hover:text-primary transition-colors"
-          >
-            <FileText className="w-3 h-3 inline mr-1" />
-            Termeni
-          </a>
-          <a 
-            href="/privacy" 
-            className="px-3 py-1.5 rounded-lg text-xs font-black text-slate-600 hover:text-primary transition-colors"
-          >
-            <Shield className="w-3 h-3 inline mr-1" />
-            Confidențialitate
-          </a>
-        </div>
       </div>
 
       {/* Mobile Bottom Tab Bar */}
@@ -143,25 +126,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         </div>
       </nav>
 
-      {/* Legal Links - Mobile */}
-      <div className="md:hidden fixed bottom-20 left-0 right-0 z-30 bg-white/90 backdrop-blur-sm border border-slate-200 px-4 py-2">
-        <div className="flex items-center justify-center gap-4 max-w-md mx-auto">
-          <a 
-            href="/terms" 
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black text-slate-600 hover:text-primary transition-colors"
-          >
-            <FileText className="w-3 h-3" />
-            Termeni
-          </a>
-          <a 
-            href="/privacy" 
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black text-slate-600 hover:text-primary transition-colors"
-          >
-            <Shield className="w-3 h-3" />
-            Confidențialitate
-          </a>
-        </div>
-      </div>
     </>
   );
 };
