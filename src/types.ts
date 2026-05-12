@@ -17,6 +17,7 @@ export interface BaseSaving {
   currency: Currency;
   name: string;
   createdAt: number;
+  startDate?: string;
   bank?: string;
   details?: Record<string, any>;
 }

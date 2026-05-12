@@ -8,26 +8,28 @@ import { motion, AnimatePresence } from 'motion/react';
 interface SavingFormProps {
   onAdd: (saving: Saving) => void;
   onCancel: () => void;
+  initialData?: Saving | null;
 }
 
-export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel }) => {
-  const [type, setType] = useState<SavingType | null>(null);
-  const [currency, setCurrency] = useState<Currency>('RON');
-  const [amount, setAmount] = useState<string>('');
-  const [name, setName] = useState<string>('');
+export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initialData }) => {
+  const [type, setType] = useState<SavingType | null>(initialData?.type || null);
+  const [currency, setCurrency] = useState<Currency>(initialData?.currency || 'RON');
+  const [amount, setAmount] = useState<string>(initialData?.amount?.toString() || '');
+  const [name, setName] = useState<string>(initialData?.name || '');
   
   // Bank Deposit specific fields
-  const [interestRate, setInterestRate] = useState<string>('');
-  const [maturityDate, setMaturityDate] = useState<string>('');
-  const [isCapitalized, setIsCapitalized] = useState<boolean>(false);
-  const [bankName, setBankName] = useState<string>('');
+  const [interestRate, setInterestRate] = useState<string>((initialData as any)?.interestRate?.toString() || '');
+  const [maturityDate, setMaturityDate] = useState<string>((initialData as any)?.maturityDate || '');
+  const [startDate, setStartDate] = useState<string>((initialData as any)?.startDate || new Date().toISOString().split('T')[0]);
+  const [isCapitalized, setIsCapitalized] = useState<boolean>((initialData as any)?.isCapitalized || false);
+  const [bankName, setBankName] = useState<string>((initialData as any)?.bank || '');
 
   // Gold specific
-  const [weight, setWeight] = useState<string>('');
+  const [weight, setWeight] = useState<string>(initialData?.details?.weightInGrams?.toString() || '');
 
   // Stock specific
-  const [symbol, setSymbol] = useState<string>('');
-  const [shares, setShares] = useState<string>('');
+  const [symbol, setSymbol] = useState<string>(initialData?.details?.symbol || '');
+  const [shares, setShares] = useState<string>(initialData?.details?.shares?.toString() || '');
 
   // Titluri de Stat shares extra fields with Deposit
   const isSecurity = type === SavingType.BONDS || type === SavingType.DEPOSIT;
@@ -37,13 +39,14 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel }) => {
     if (!type || !amount || !name) return;
 
     const baseData: any = {
-      id: crypto.randomUUID(),
+      id: initialData?.id || crypto.randomUUID(),
       type,
       amount: parseFloat(amount),
       currency,
       name,
-      createdAt: Date.now(),
-      details: {}
+      createdAt: initialData?.createdAt || Date.now(),
+      startDate: startDate,
+      details: initialData?.details || {}
     };
 
     if (type === SavingType.DEPOSIT || type === SavingType.BONDS) {
@@ -54,10 +57,10 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel }) => {
         baseData.bank = bankName;
       }
     } else if (type === SavingType.GOLD) {
-      baseData.weightInGrams = parseFloat(weight) || 0;
+      baseData.details.weightInGrams = parseFloat(weight) || 0;
     } else if (type === SavingType.STOCKS || type === SavingType.ETF) {
-      baseData.symbol = symbol.toUpperCase();
-      baseData.shares = parseFloat(shares) || 0;
+      baseData.details.symbol = symbol.toUpperCase();
+      baseData.details.shares = parseFloat(shares) || 0;
       baseData.bank = bankName; // Broker
     }
 
@@ -155,6 +158,44 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel }) => {
                 <div className="space-y-4 pt-4 mt-2 border-t border-slate-800">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-slate-500">Data Constituării</label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none text-slate-300 font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-slate-500">Data Scadență</label>
+                      <input
+                        type="date"
+                        value={maturityDate}
+                        onChange={(e) => setMaturityDate(e.target.value)}
+                        className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none text-slate-300 font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pb-2">
+                    {[1, 3, 6, 12, 24, 36].map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          const base = startDate ? new Date(startDate) : new Date();
+                          base.setMonth(base.getMonth() + m);
+                          setMaturityDate(base.toISOString().split('T')[0]);
+                        }}
+                        className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-400 transition-colors"
+                      >
+                        {m} LUNI
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold uppercase text-slate-500">
                         {type === SavingType.DEPOSIT ? 'Dobândă (% an)' : 'Cupon / Dobândă (% an)'}
                       </label>
@@ -165,15 +206,6 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel }) => {
                         onChange={(e) => setInterestRate(e.target.value)}
                         placeholder="0.00"
                         className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-black text-white placeholder:text-slate-600"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase text-slate-500">Data Scadență</label>
-                      <input
-                        type="date"
-                        value={maturityDate}
-                        onChange={(e) => setMaturityDate(e.target.value)}
-                        className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none text-slate-300 font-bold"
                       />
                     </div>
                   </div>

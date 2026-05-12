@@ -2,12 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { Saving, SavingType, Currency } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { CURRENCY_SYMBOLS } from '../constants';
-import { Trash2, Landmark, Coins, TrendingUp, Wallet, ArrowRight, Layers, FileText, Home, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Filter, ArrowUpRight, Search, X } from 'lucide-react';
+import { Trash2, Landmark, Coins, TrendingUp, Wallet, ArrowRight, Layers, FileText, Home, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Filter, ArrowUpRight, Search, X, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SavingsListProps {
   savings: Saving[];
   onDelete: (id: string) => void;
+  onEdit: (saving: Saving) => void;
   filter: { type?: SavingType; currency?: Currency } | null;
   onClearFilter: () => void;
 }
@@ -44,7 +45,7 @@ const rowVariants = {
   }
 };
 
-export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, filter, onClearFilter }) => {
+export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onEdit, filter, onClearFilter }) => {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -343,41 +344,50 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, fil
                       </div>
                     </div>
                     
-                    <AnimatePresence mode="wait">
-                      {confirmDeleteId === s.id ? (
-                        <motion.div 
-                          key="confirm-mobile"
-                          initial={{ opacity: 0, scale: 0.9, x: 10 }}
-                          animate={{ opacity: 1, scale: 1, x: 0 }}
-                          exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                          className="flex items-center gap-2"
-                        >
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="h-12 w-12 flex items-center justify-center text-[10px] font-black uppercase text-slate-400 bg-white border border-slate-100 rounded-2xl shadow-sm"
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => onEdit(s)}
+                        className="w-12 h-12 flex items-center justify-center text-slate-400 hover:text-primary bg-white border border-slate-100 rounded-2xl transition-all shadow-sm active:scale-95"
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                    
+                      <AnimatePresence mode="wait">
+                        {confirmDeleteId === s.id ? (
+                          <motion.div 
+                            key="confirm-mobile"
+                            initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                            animate={{ opacity: 1, scale: 1, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                            className="flex items-center gap-2"
                           >
-                            X
-                          </button>
-                          <button
-                            onClick={() => {
-                              onDelete(s.id);
-                              setConfirmDeleteId(null);
-                            }}
-                            className="h-12 px-6 flex items-center justify-center text-[10px] font-black uppercase bg-red-600 text-white rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all"
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="h-12 w-12 flex items-center justify-center text-[10px] font-black uppercase text-slate-400 bg-white border border-slate-100 rounded-2xl shadow-sm"
+                            >
+                              X
+                            </button>
+                            <button
+                              onClick={() => {
+                                onDelete(s.id);
+                                setConfirmDeleteId(null);
+                              }}
+                              className="h-12 px-6 flex items-center justify-center text-[10px] font-black uppercase bg-red-600 text-white rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all"
+                            >
+                              Elimină
+                            </button>
+                          </motion.div>
+                        ) : (
+                          <motion.button
+                            key="delete-btn-mobile"
+                            onClick={() => setConfirmDeleteId(s.id)}
+                            className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-red-500 bg-white border border-slate-100 rounded-2xl transition-all shadow-sm active:scale-95"
                           >
-                            Elimină
-                          </button>
-                        </motion.div>
-                      ) : (
-                        <motion.button
-                          key="delete-btn-mobile"
-                          onClick={() => setConfirmDeleteId(s.id)}
-                          className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-red-500 bg-white border border-slate-100 rounded-2xl transition-all shadow-sm active:scale-95"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </motion.button>
-                      )}
-                    </AnimatePresence>
+                            <Trash2 className="w-5 h-5" />
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-200/50">
@@ -472,47 +482,59 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, fil
                         )}
                       </td>
                       <td className="py-6 pl-4 text-right">
-                        <AnimatePresence mode="wait">
-                          {confirmDeleteId === s.id ? (
-                            <motion.div 
-                              key="confirm"
-                              initial={{ opacity: 0, scale: 0.9, x: 10 }}
-                              animate={{ opacity: 1, scale: 1, x: 0 }}
-                              exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                              className="flex items-center justify-end gap-2"
-                            >
-                              <button
-                                onClick={() => setConfirmDeleteId(null)}
-                                className="text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 px-3 py-2 bg-slate-50 rounded-xl transition-all"
+                        <div className="flex items-center justify-end gap-2">
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => onEdit(s)}
+                            className="p-3 text-slate-300 hover:text-primary hover:bg-primary/5 rounded-2xl transition-all duration-300"
+                            aria-label="Editează activ"
+                          >
+                            <Pencil className="w-5 h-5" />
+                          </motion.button>
+
+                          <AnimatePresence mode="wait">
+                            {confirmDeleteId === s.id ? (
+                              <motion.div 
+                                key="confirm"
+                                initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                                className="flex items-center justify-end gap-2"
                               >
-                                Anulează
-                              </button>
-                              <button
-                                onClick={() => {
-                                  onDelete(s.id);
-                                  setConfirmDeleteId(null);
-                                }}
-                                className="text-[10px] font-black uppercase bg-red-600 text-white px-4 py-2 rounded-xl shadow-lg shadow-red-600/30 hover:bg-red-700 transition-all active:scale-95"
+                                <button
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 px-3 py-2 bg-slate-50 rounded-xl transition-all"
+                                >
+                                  Anulează
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    onDelete(s.id);
+                                    setConfirmDeleteId(null);
+                                  }}
+                                  className="text-[10px] font-black uppercase bg-red-600 text-white px-4 py-2 rounded-xl shadow-lg shadow-red-600/30 hover:bg-red-700 transition-all active:scale-95"
+                                >
+                                  Confirmă
+                                </button>
+                              </motion.div>
+                            ) : (
+                              <motion.button
+                                key="delete-btn"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                whileHover={{ scale: 1.1, rotate: 8 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => setConfirmDeleteId(s.id)}
+                                className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all duration-300"
+                                aria-label="Șterge active"
                               >
-                                Confirmă
-                              </button>
-                            </motion.div>
-                          ) : (
-                            <motion.button
-                              key="delete-btn"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              whileHover={{ scale: 1.1, rotate: 8 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => setConfirmDeleteId(s.id)}
-                              className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all duration-300"
-                              aria-label="Șterge active"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </motion.button>
-                          )}
-                        </AnimatePresence>
+                                <Trash2 className="w-5 h-5" />
+                              </motion.button>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </td>
                     </motion.tr>
                   );

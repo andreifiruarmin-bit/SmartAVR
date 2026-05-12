@@ -14,7 +14,6 @@ import { Dashboard } from './components/Dashboard';
 import { SavingsList } from './components/SavingsList';
 import { AddSavingModal } from './components/AddSavingModal';
 import { Auth } from './components/Auth';
-import { AIAssistant } from './components/AIAssistant';
 import { Navigation } from './components/Navigation';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -26,7 +25,13 @@ export default function App() {
   const [rates, setRates] = useState<Record<string, number>>(DEFAULT_RATES);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [listFilter, setListFilter] = useState<{ type?: SavingType; currency?: Currency } | null>(null);
+
+  const handleEdit = (saving: Saving) => {
+    setEditingSaving(saving);
+    setIsModalOpen(true);
+  };
 
   // Handle Auth
   useEffect(() => {
@@ -159,6 +164,9 @@ export default function App() {
   const totals = useMemo(() => {
     let totalInBase = 0;
     let weightedYieldSum = 0;
+    let totalDepositsBase = 0;
+    let weightedDepositYieldSum = 0;
+
     const byCurrency: Record<string, number> = {};
     const byType: Record<string, number> = {};
 
@@ -169,13 +177,26 @@ export default function App() {
       const yieldRate = (s as any).interestRate || 0;
       weightedYieldSum += ronValue * (yieldRate / 100);
 
+      if (s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) {
+        totalDepositsBase += ronValue;
+        weightedDepositYieldSum += ronValue * (yieldRate / 100);
+      }
+
       byCurrency[s.currency] = (byCurrency[s.currency] || 0) + ronValue;
       byType[s.type] = (byType[s.type] || 0) + ronValue;
     });
 
     const averageYield = totalInBase > 0 ? (weightedYieldSum / totalInBase) * 100 : 0;
+    const averageDepositYield = totalDepositsBase > 0 ? (weightedDepositYieldSum / totalDepositsBase) * 100 : 0;
 
-    return { totalInBase, byCurrency, byType, averageYield };
+    return { 
+      totalInBase, 
+      byCurrency, 
+      byType, 
+      averageYield,
+      averageDepositYield,
+      totalDepositsBase
+    };
   }, [savings, rates]);
 
   const filteredSavings = useMemo(() => {
@@ -345,6 +366,7 @@ export default function App() {
               <SavingsList 
                 savings={filteredSavings} 
                 onDelete={deleteSaving}
+                onEdit={handleEdit}
                 filter={listFilter}
                 onClearFilter={clearFilters}
               />
@@ -361,10 +383,13 @@ export default function App() {
 
       <AddSavingModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingSaving(null);
+        }}
         onAdd={addSaving}
+        editingSaving={editingSaving}
       />
-      <AIAssistant />
     </div>
   );
 }
