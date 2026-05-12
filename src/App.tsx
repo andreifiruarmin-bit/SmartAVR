@@ -10,14 +10,19 @@ import { User } from '@supabase/supabase-js';
 import { Saving, SavingType, Currency } from './types';
 import { DEFAULT_RATES, BASE_CURRENCY } from './constants';
 import { cn, formatCurrency, convertToRON, fetchLiveRates } from './lib/utils';
+import { useDarkMode } from './hooks/useDarkMode';
 import { Dashboard } from './components/Dashboard';
 import { SavingsList } from './components/SavingsList';
 import { AddSavingModal } from './components/AddSavingModal';
 import { Auth } from './components/Auth';
 import { Navigation } from './components/Navigation';
 import { motion, AnimatePresence } from 'motion/react';
+import TermsAndConditions from './pages/TermsAndConditions';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 export default function App() {
+  const { isDark, toggleDark } = useDarkMode();
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'list' | 'terms' | 'privacy'>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [savings, setSavings] = useState<Saving[]>([]);
@@ -261,18 +266,46 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="flex flex-col items-center justify-center py-40">
         <motion.div 
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full"
+          className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full mb-4"
         />
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">Sincronizare active...</p>
       </div>
+    );
+  }
+
+  if (savings.length === 0) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center justify-center py-24 text-center px-4"
+      >
+        <div className="w-24 h-24 bg-white rounded-[2.5rem] shadow-xl border border-slate-100 flex items-center justify-center mb-8 animate-bounce transition-all duration-1000">
+          <Wallet className="w-12 h-12 text-primary" />
+        </div>
+        <h2 className="text-2xl font-black text-slate-900 mb-3 tracking-tight uppercase">Încă nu ai economii</h2>
+        <p className="text-slate-500 max-w-sm font-medium leading-relaxed">
+          Planifică-ți viitorul financiar adăugând primul tău depozit sau titlu de stat chiar acum.
+        </p>
+      </motion.div>
     );
   }
 
   if (!user) {
     return <Auth />;
+  }
+
+  // Render based on current page
+  if (currentPage === 'terms') {
+    return <TermsAndConditions />;
+  }
+
+  if (currentPage === 'privacy') {
+    return <PrivacyPolicy />;
   }
 
   return (
@@ -290,7 +323,7 @@ export default function App() {
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary/30">
               S
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-2xl font-extrabold tracking-tighter text-slate-900">
               Smart<span className="text-primary">AVR</span>
             </h1>
           </div>
@@ -378,7 +411,9 @@ export default function App() {
       <Navigation 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
-        onAddClick={() => setIsModalOpen(true)} 
+        onAddClick={() => setIsModalOpen(true)}
+        isDark={isDark}
+        toggleDark={toggleDark}
       />
 
       <AddSavingModal

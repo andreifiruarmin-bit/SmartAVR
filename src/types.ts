@@ -10,6 +10,24 @@ export enum SavingType {
   CASH_RESERVE = 'Rezervă Cash'
 }
 
+// Pentru acțiuni
+export interface StockDetails {
+  symbol: string;
+  numberOfShares: number;
+  averageAcquisitionPrice: number; // Costul mediu per acțiune la achiziție
+  currentPricePerShare?: number;   // Prețul curent per acțiune (actualizat din API)
+  lastPriceUpdate?: string;        // ISO timestamp ultima actualizare preț
+  market?: 'BVB' | 'NYSE' | 'NASDAQ' | 'OTHER';
+}
+
+// Pentru aur
+export interface GoldDetails {
+  weightGrams: number;             // Gramajul total (ex: 31.1 pentru 1 oz)
+  acquisitionPricePerGram: number; // Prețul de achiziție per gram (RON)
+  currentPricePerGram?: number;    // Prețul curent per gram (actualizat din API)
+  lastPriceUpdate?: string;        // ISO timestamp ultima actualizare preț
+}
+
 export interface BaseSaving {
   id: string;
   type: SavingType;
@@ -47,5 +65,7 @@ export interface StockSaving extends BaseSaving {
 export type Saving = BankDeposit | CashReserve | GoldSaving | StockSaving | BaseSaving;
 
 export interface ExchangeRates {
-  [key: string]: number; // Price of 1 unit in base currency (RON)
+  XAU?: number; // Prețul aurului per gram în RON
+  lastUpdated?: string; // ISO timestamp
+  [key: string]: number | string | undefined;
 }

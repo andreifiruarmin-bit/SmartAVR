@@ -104,11 +104,11 @@ export const Auth: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 p-8 md:p-10 border border-slate-100 overflow-hidden relative"
+        className="w-full max-w-md bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-gray-900/10 p-8 md:p-10 border border-slate-100 dark:border-gray-700 overflow-hidden relative"
       >
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
         
@@ -116,16 +116,16 @@ export const Auth: React.FC = () => {
           <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-xl shadow-primary/30 mb-4">
             S
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-gray-100">
             Smart<span className="text-primary">AVR</span>
           </h1>
-          <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2 px-1 text-center">
+          <p className="text-slate-400 dark:text-gray-400 text-sm font-bold uppercase tracking-widest mt-2 px-1 text-center">
             {isLogin ? 'Bine ai revenit' : 'Creează un cont premium'}
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold flex items-center gap-2">
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 flex-shrink-0" />
             {error}
           </div>
@@ -169,15 +169,15 @@ export const Auth: React.FC = () => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-200 bg-slate-50 transition-all checked:bg-primary checked:border-primary focus:outline-none"
+                  className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-700 transition-all checked:bg-primary checked:border-primary focus:outline-none"
                 />
-                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white dark:text-gray-100 opacity-0 peer-checked:opacity-100">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 </div>
               </div>
-              <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-slate-900 transition-colors tracking-widest">Ține-mă minte</span>
+              <span className="text-[10px] font-black uppercase text-slate-300 dark:text-gray-400 hover:text-slate-400 dark:hover:text-gray-100 transition-all tracking-widest">Ține-mă minte</span>
             </label>
             
             {isLogin && (
@@ -193,7 +193,7 @@ export const Auth: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/90 transition-all shadow-xl shadow-primary/30 flex items-center justify-center gap-2 mt-2"
+            className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/90 transition-all shadow-xl shadow-primary/40 flex items-center justify-center gap-2 mt-2"
           >
             {loading ? 'Procesăm...' : isLogin ? 'Autentificare' : 'Înregistrare'}
             <ArrowRight className="w-4 h-4" />
@@ -218,14 +218,14 @@ export const Auth: React.FC = () => {
             Continuă cu Google
           </button>
           <button
-            onClick={useTestAccount}
-            className="w-full py-2 text-[10px] font-black uppercase text-slate-300 hover:text-slate-400 transition-all tracking-widest"
+            type="button"
+            className="w-full py-2 text-[10px] font-black uppercase text-slate-300 dark:text-gray-400 hover:text-slate-400 dark:hover:text-gray-100 transition-all tracking-widest"
           >
             Folosește cont de test
           </button>
         </div>
 
-        <p className="mt-8 text-center text-slate-400 text-xs font-bold uppercase tracking-tight">
+        <p className="mt-8 text-center text-slate-400 dark:text-gray-400 text-xs font-bold uppercase tracking-tight">
           {isLogin ? 'Nu ai cont?' : 'Ai deja un cont?'}
           <button
             onClick={() => setIsLogin(!isLogin)}

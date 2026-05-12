@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Saving, SavingType, Currency } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { CURRENCY_SYMBOLS } from '../constants';
-import { Trash2, Landmark, Coins, TrendingUp, Wallet, ArrowRight, Layers, FileText, Home, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Filter, ArrowUpRight, Search, X, Pencil } from 'lucide-react';
+import { Trash2, Landmark, Coins, TrendingUp, Wallet, ArrowRight, Layers, FileText, Home, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Filter, ArrowUpRight, Search, X, Pencil, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SavingsListProps {
@@ -48,6 +48,42 @@ const rowVariants = {
 export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onEdit, filter, onClearFilter }) => {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>('date');
+
+  // CSV Export Function
+  const exportToCSV = () => {
+    const headers = ['Nume', 'Tip', 'Suma', 'Moneda', 'Banca/Broker', 'Dobanda (%)', 'Data Scadenta', 'Randament Estimat'];
+    
+    const rows = savings.map(s => {
+      // Handle different saving types for interest rate and maturity date
+      const interestRate = (s as any).interestRate || 0;
+      const maturityDate = (s as any).maturityDate || '';
+      const estimatedReturn = interestRate ? (s.amount * interestRate / 100) : 0;
+      
+      return [
+        s.name,
+        s.type,
+        s.amount.toString(),
+        s.currency,
+        s.bank ?? '',
+        interestRate.toString(),
+        maturityDate,
+        estimatedReturn.toString()
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const BOM = '\uFEFF'; // pentru Excel Romanian locale
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `smartavr-portofoliu-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState<'all' | '30days' | 'thisYear'>('all');
@@ -122,11 +158,11 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col items-center justify-center py-32 text-center"
       >
-        <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6 border border-slate-100">
+        <div className="w-20 h-20 bg-white dark:bg-gray-900 rounded-[2rem] flex items-center justify-center mb-6 border border-slate-100 dark:border-gray-700">
           <Layers className="w-8 h-8 text-slate-300" />
         </div>
-        <h2 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tight">Lista este goală</h2>
-        <p className="text-slate-500 font-medium">Adaugă prima ta economie pentru a începe monitorizarea.</p>
+        <h2 className="text-2xl font-black text-slate-900 dark:text-gray-100 mb-2 uppercase tracking-tight">Lista este goală</h2>
+        <p className="text-slate-500 dark:text-gray-400 font-medium">Adaugă prima ta economie pentru a începe monitorizarea.</p>
       </motion.div>
     );
   }
@@ -139,7 +175,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
         className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6"
       >
         <div className="flex flex-col gap-1.5 flex-1 w-full">
-          <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 flex items-center gap-3">
+          <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-gray-100 flex items-center gap-3">
             <div className="w-2 h-6 bg-primary rounded-full shadow-lg shadow-primary/30" />
             Portofoliu Active
           </h2>
@@ -147,7 +183,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
           <div className="mt-4 flex flex-col md:flex-row gap-4 w-full">
             {/* Search Input */}
             <div className="relative flex-1 group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-400 group-focus-within:text-primary transition-colors">
                 <Search className="w-4 h-4" />
               </div>
               <input 
@@ -155,12 +191,12 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                 placeholder="Caută după nume sau bancă..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+                className="w-full pl-11 pr-4 py-4 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-2xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
               />
               {searchTerm && (
                 <button 
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-all"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg text-slate-400 dark:text-gray-300 transition-all"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -168,12 +204,12 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
             </div>
 
             {/* Date Filte */}
-            <div className="flex items-center gap-1 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto scrollbar-hide shrink-0">
+            <div className="flex items-center gap-1 bg-white dark:bg-gray-800 p-1.5 rounded-2xl border border-slate-200 dark:border-gray-600 shadow-sm overflow-x-auto scrollbar-hide shrink-0">
               <button 
                 onClick={() => setDateRange('all')}
                 className={cn(
                   "px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
-                  dateRange === 'all' ? "bg-slate-900 text-white shadow-md font-bold" : "text-slate-400 hover:text-slate-900"
+                  dateRange === 'all' ? "bg-slate-900 dark:bg-gray-900 text-white shadow-md font-bold" : "text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100"
                 )}
               >
                 Toate
@@ -182,7 +218,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                 onClick={() => setDateRange('30days')}
                 className={cn(
                   "px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
-                  dateRange === '30days' ? "bg-slate-900 text-white shadow-md font-bold" : "text-slate-400 hover:text-slate-900"
+                  dateRange === '30days' ? "bg-slate-900 dark:bg-gray-900 text-white shadow-md font-bold" : "text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100"
                 )}
               >
                 Ult. 30 zile
@@ -191,7 +227,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                 onClick={() => setDateRange('thisYear')}
                 className={cn(
                   "px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
-                  dateRange === 'thisYear' ? "bg-slate-900 text-white shadow-md font-bold" : "text-slate-400 hover:text-slate-900"
+                  dateRange === 'thisYear' ? "bg-slate-900 dark:bg-gray-900 text-white shadow-md font-bold" : "text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100"
                 )}
               >
                 Anul curent
@@ -202,14 +238,14 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
           <div className="flex flex-wrap items-center gap-2 mt-4">
             {(filter || searchTerm || dateRange !== 'all') ? (
               <>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Filtre active:</span>
+                <span className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest mr-1">Filtre active:</span>
                 <AnimatePresence mode="popLayout">
                   {filter?.type && (
                     <motion.span 
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.8, opacity: 0 }}
-                      className="px-3 py-1.5 bg-primary text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-primary/20"
+                      className="px-3 py-1.5 bg-primary dark:bg-gray-900 text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-primary/20 dark:shadow-gray-900/20"
                     >
                       {React.createElement(TYPE_ICONS[filter.type] || Wallet, { className: "w-3 h-3" })}
                       {filter.type}
@@ -220,7 +256,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.8, opacity: 0 }}
-                      className="px-3 py-1.5 bg-slate-900 text-white text-[9px] font-black rounded-xl uppercase shadow-lg shadow-slate-900/10"
+                      className="px-3 py-1.5 bg-slate-900 dark:bg-gray-900 text-white text-[9px] font-black rounded-xl uppercase shadow-lg shadow-slate-900/10 dark:shadow-gray-900/10"
                     >
                       {filter.currency}
                     </motion.span>
@@ -230,7 +266,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.8, opacity: 0 }}
-                      className="px-3 py-1.5 bg-indigo-500 text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                      className="px-3 py-1.5 bg-indigo-500 dark:bg-gray-900 text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-indigo-500/20 dark:shadow-gray-900/20"
                     >
                       <Search className="w-3 h-3" />
                       "{searchTerm}"
@@ -241,7 +277,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.8, opacity: 0 }}
-                      className="px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                      className="px-3 py-1.5 bg-emerald-500 dark:bg-gray-900 text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-2 shadow-lg shadow-emerald-500/20 dark:shadow-gray-900/20"
                     >
                       <Calendar className="w-3 h-3" />
                       {dateRange === '30days' ? 'Ult. 30 zile' : 'Anul curent'}
@@ -250,26 +286,26 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                 </AnimatePresence>
                 <button 
                   onClick={handleReset}
-                  className="text-[9px] font-black text-slate-900 hover:text-primary uppercase ml-2 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+                  className="text-[9px] font-black text-slate-900 dark:text-gray-100 hover:text-primary uppercase ml-2 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 px-3 py-1.5 rounded-xl transition-all active:scale-95"
                 >
                   Resetează tot
                 </button>
               </>
             ) : (
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Istoric tranzacții și dețineri</span>
+               <span className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest">Istoric tranzacții și dețineri</span>
             )}
           </div>
         </div>
 
         {/* Advanced Sorting UI */}
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 lg:block hidden">Sortează după:</p>
-          <div className="flex items-center gap-2 bg-white/50 p-1.5 rounded-2xl border border-slate-200 shadow-sm w-full lg:w-auto">
+          <p className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest mr-2 lg:block hidden">Sortează după:</p>
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1.5 rounded-2xl border border-slate-200 dark:border-gray-600 shadow-sm w-full lg:w-auto">
             <button
               onClick={() => toggleSort('date')}
               className={cn(
                 "flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                sortField === 'date' ? "bg-slate-900 text-white shadow-md scale-105" : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+                sortField === 'date' ? "bg-slate-900 dark:bg-gray-900 text-white shadow-md scale-105" : "text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 hover:bg-slate-50 dark:hover:bg-gray-700"
               )}
             >
               <Calendar className="w-3.5 h-3.5" />
@@ -279,7 +315,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
               onClick={() => toggleSort('amount')}
               className={cn(
                 "flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                sortField === 'amount' ? "bg-slate-900 text-white shadow-md scale-105" : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+                sortField === 'amount' ? "bg-slate-900 dark:bg-gray-900 text-white shadow-md scale-105" : "text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 hover:bg-slate-50 dark:hover:bg-gray-700"
               )}
             >
               <TrendingUp className="w-3.5 h-3.5" />
@@ -289,7 +325,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
               onClick={() => toggleSort('type')}
               className={cn(
                 "flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                sortField === 'type' ? "bg-slate-900 text-white shadow-md scale-105" : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+                sortField === 'type' ? "bg-slate-900 dark:bg-gray-900 text-white shadow-md scale-105" : "text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 hover:bg-slate-50 dark:hover:bg-gray-700"
               )}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -303,15 +339,15 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-[3rem] p-16 text-center border border-slate-200 shadow-sm"
+          className="bg-white dark:bg-gray-900 rounded-[3rem] p-16 text-center border border-slate-200 dark:border-gray-600 shadow-sm"
         >
-          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Filter className="w-8 h-8 text-slate-200" />
+          <div className="w-20 h-20 bg-slate-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Filter className="w-8 h-8 text-slate-200 dark:text-gray-400" />
           </div>
-          <p className="text-slate-900 font-black uppercase tracking-widest text-sm mb-4">Niciun rezultat pentru acest filtru</p>
+          <p className="text-slate-900 dark:text-gray-100 font-black uppercase tracking-widest text-sm mb-4">Niciun rezultat pentru acest filtru</p>
           <button 
             onClick={handleReset}
-            className="text-primary font-black uppercase tracking-widest text-xs hover:bg-primary/5 px-6 py-3 rounded-2xl transition-all"
+            className="text-primary dark:text-gray-100 font-black uppercase tracking-widest text-xs hover:bg-primary/5 dark:hover:bg-gray-700/5 px-6 py-3 rounded-2xl transition-all"
           >
             Vezi tot portofoliul
           </button>
@@ -321,7 +357,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="bg-white rounded-[2.5rem] lg:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden p-3 sm:p-6 lg:p-10 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500"
+          className="bg-white dark:bg-gray-900 rounded-[2.5rem] lg:rounded-[3rem] border border-slate-200 dark:border-gray-600 shadow-sm overflow-hidden p-3 sm:p-6 lg:p-10 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-gray-600/50 transition-all duration-500"
         >
           {/* Mobile View - Card Layout */}
           <div className="lg:hidden space-y-4">
@@ -331,23 +367,23 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                 <motion.div
                   key={s.id}
                   variants={rowVariants}
-                  className="bg-slate-50/50 border border-slate-100 rounded-3xl p-5 group flex flex-col gap-4 relative overflow-hidden"
+                  className="bg-slate-50/50 dark:bg-gray-800/50 border border-slate-100 dark:border-gray-600 rounded-3xl p-5 group flex flex-col gap-4 relative overflow-hidden"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-primary shadow-sm shadow-primary/5">
+                      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-gray-900 border border-slate-100 dark:border-gray-600 flex items-center justify-center text-primary dark:text-gray-100 shadow-sm shadow-primary/5 dark:shadow-gray-900/5">
                         <Icon className="w-6 h-6" />
                       </div>
                       <div>
-                        <p className="text-base font-black text-slate-900">{s.name}</p>
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{s.type}</p>
+                        <p className="text-base font-black text-slate-900 dark:text-gray-100">{s.name}</p>
+                        <p className="text-[10px] font-black uppercase text-slate-400 dark:text-gray-400 tracking-widest">{s.type}</p>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => onEdit(s)}
-                        className="w-12 h-12 flex items-center justify-center text-slate-400 hover:text-primary bg-white border border-slate-100 rounded-2xl transition-all shadow-sm active:scale-95"
+                        className="w-12 h-12 flex items-center justify-center text-slate-400 dark:text-gray-400 hover:text-primary dark:hover:text-gray-100 bg-white dark:bg-gray-900 border border-slate-100 dark:border-gray-600 rounded-2xl transition-all shadow-sm active:scale-95"
                       >
                         <Pencil className="w-5 h-5" />
                       </button>
@@ -363,7 +399,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                           >
                             <button
                               onClick={() => setConfirmDeleteId(null)}
-                              className="h-12 w-12 flex items-center justify-center text-[10px] font-black uppercase text-slate-400 bg-white border border-slate-100 rounded-2xl shadow-sm"
+                              className="h-12 w-12 flex items-center justify-center text-[10px] font-black uppercase text-slate-400 dark:text-gray-400 bg-white dark:bg-gray-900 border border-slate-100 dark:border-gray-600 rounded-2xl shadow-sm"
                             >
                               X
                             </button>
@@ -372,7 +408,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                                 onDelete(s.id);
                                 setConfirmDeleteId(null);
                               }}
-                              className="h-12 px-6 flex items-center justify-center text-[10px] font-black uppercase bg-red-600 text-white rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all"
+                              className="h-12 px-6 flex items-center justify-center text-[10px] font-black uppercase bg-red-600 dark:bg-red-600 text-white rounded-2xl shadow-lg shadow-red-600/20 dark:shadow-red-600/20 active:scale-95 transition-all"
                             >
                               Elimină
                             </button>
@@ -381,7 +417,7 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                           <motion.button
                             key="delete-btn-mobile"
                             onClick={() => setConfirmDeleteId(s.id)}
-                            className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-red-500 bg-white border border-slate-100 rounded-2xl transition-all shadow-sm active:scale-95"
+                            className="w-12 h-12 flex items-center justify-center text-slate-300 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-500 bg-white dark:bg-gray-900 border border-slate-100 dark:border-gray-600 rounded-2xl transition-all shadow-sm active:scale-95"
                           >
                             <Trash2 className="w-5 h-5" />
                           </motion.button>
@@ -390,31 +426,45 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-200/50">
+                  <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-200 dark:border-gray-600/50">
                     <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Valoare</p>
-                      <p className="font-black text-base text-slate-900">{formatCurrency(s.amount, s.currency)}</p>
+                      <p className="text-[9px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-tighter mb-1">Valoare</p>
+                      <p className="font-black text-base text-slate-900 dark:text-gray-100">{formatCurrency(s.amount, s.currency)}</p>
                     </div>
                       {/* Value & Yield */}
                       <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Randament</p>
+                        <p className="text-[9px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-tighter mb-1">Randament</p>
                         {(s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) && (s as any).interestRate ? (
-                          <p className="text-emerald-600 font-black text-sm">+{ (s as any).interestRate}% P.A.</p>
+                          <p className="text-emerald-600 dark:text-emerald-600 font-black text-sm">+{ (s as any).interestRate}% P.A.</p>
                         ) : (
-                          <p className="text-slate-500 font-bold text-sm italic uppercase">Variabil</p>
+                          <p className="text-slate-500 dark:text-gray-400 font-bold text-sm italic uppercase">Variabil</p>
                         )}
                       </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary dark:bg-gray-900" />
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">
                       {s.bank || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
                     </p>
                   </div>
                 </motion.div>
               );
             })}
+          </div>
+
+          {/* Export Button */}
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">
+              {filter ? `Rezultate filtrate (${savings.length} active)` : `Toate activele (${savings.length})`}
+            </h3>
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+            >
+              <Download size={16} />
+              Export Portofoliu (CSV)
+            </button>
           </div>
 
           {/* Desktop View - Table Layout */}

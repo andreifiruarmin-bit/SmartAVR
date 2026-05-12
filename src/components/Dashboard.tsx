@@ -3,7 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, L
 import { Saving, SavingType, Currency, BankDeposit } from '../types';
 import { formatCurrency, convertToRON, cn } from '../lib/utils';
 import { BASE_CURRENCY, DEFAULT_RATES } from '../constants';
-import { Wallet, TrendingUp, Landmark, Filter, ArrowUpRight, DollarSign, PieChart as PieChartIcon, Activity, Coins, Settings2, EyeOff, Eye, X, ChevronDown } from 'lucide-react';
+import { Wallet, TrendingUp, Landmark, Filter, ArrowUpRight, DollarSign, PieChart as PieChartIcon, Activity, Coins, Settings2, EyeOff, Eye, X, ChevronDown, AlertTriangle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 
 interface DashboardProps {
@@ -73,6 +73,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
   const [displayCurrencyMode, setDisplayCurrencyMode] = useState<'RON' | 'EUR'>('RON');
   const [showConfig, setShowConfig] = useState(false);
   const [confirmHideId, setConfirmHideId] = useState<string | null>(null);
+  const [activeSliceIndex, setActiveSliceIndex] = useState<number | null>(null);
+  const [clickCount, setClickCount] = useState<{ index: number; count: number; timer: ReturnType<typeof setTimeout> | null }>({ index: -1, count: 0, timer: null });
 
   // Dashboard configuration state (with local storage persistence)
   const [cardSettings, setCardSettings] = useState<Record<string, { visible: boolean, currency: Currency | 'BASE' }>>(() => {
@@ -116,6 +118,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
     if (currency === 'RON') return ronValue;
     return ronValue / (rates[currency] || 1);
   };
+
+  // Gold-specific calculations
+  const goldData = useMemo(() => {
+    const goldSavings = savings.filter(s => s.currency === 'XAU');
+    const totalGoldGrams = goldSavings.reduce((sum, s) => sum + (s as any).details?.weightInGrams || 0, 0);
+    const goldAcquisitionValueRON = goldSavings.reduce((sum, s) => sum + s.amount, 0);
+    const goldCurrentValueRON = totalGoldGrams * (rates['XAU'] || 0);
+    const goldReturnPercent = goldAcquisitionValueRON > 0 ? ((goldCurrentValueRON - goldAcquisitionValueRON) / goldAcquisitionValueRON) * 100 : 0;
+
+    return {
+      totalGoldGrams,
+      goldAcquisitionValueRON,
+      goldCurrentValueRON,
+      goldReturnPercent
+    };
+  }, [savings, rates]);
 
   const activeCurrencies = useMemo(() => {
     const used = new Set<Currency>(['RON', 'EUR']); // Always allow RON/EUR for display
@@ -256,6 +274,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
   const hasGold = (totals.byType[SavingType.GOLD] || 0) > 0;
   const hasInvestments = (totals.byType[SavingType.STOCKS] || 0) > 0 || (totals.byType[SavingType.ETF] || 0) > 0;
 
+  // PieChart click handler with debounce logic
+  const handlePieClick = (data: unknown, index: number) => {
+    const clickedData = data as { name?: string; value?: number };
+    
+    if (clickCount.timer) {
+      clearTimeout(clickCount.timer);
+    }
+
+    if (clickCount.index === index && clickCount.count === 1) {
+      // Double click - navigate/filter
+      if (clickedData.name) {
+        onSliceClick({ type: clickedData.name as SavingType });
+      }
+      setClickCount({ index: -1, count: 0, timer: null });
+      setActiveSliceIndex(null);
+    } else {
+      // First click - show details
+      setClickCount({ index, count: 1, timer: setTimeout(() => {
+        setClickCount({ index: -1, count: 0, timer: null });
+      }, 300) });
+      setActiveSliceIndex(index);
+    }
+  };
+
+  // Stale rates logic
+  const isRatesStale = useMemo(() => {
+    if (!rates?.lastUpdated) return false;
+    const hoursSince = (Date.now() - new Date(rates.lastUpdated).getTime()) / 36e5;
+    return hoursSince > 24; // 24h from constants
+  }, [rates]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-40">
@@ -335,19 +384,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white p-8 rounded-[3rem] shadow-2xl max-w-sm w-full border border-slate-200"
+              className="bg-white p-8 rounded-[3rem] shadow-2xl max-w-sm w-full border border-slate-200 dark:border-gray-700"
             >
-              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6">
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2">
                 <EyeOff className="w-8 h-8 text-red-500" />
               </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight">Ascunde acest card?</h3>
-              <p className="text-sm text-slate-500 mb-8 font-medium">
+              <h3 className="text-xl font-black text-slate-900 dark:text-gray-100 mb-2 uppercase tracking-tight">Ascunde acest card?</h3>
+              <p className="text-sm text-slate-500 dark:text-gray-400 mb-8 font-medium">
                 Vrei să ascunzi cardul "{confirmHideId.replace('_', ' ')}"? Îl poți readuce oricând din meniul de configurare.
               </p>
               <div className="flex gap-3">
                 <button 
                   onClick={() => setConfirmHideId(null)}
-                  className="flex-1 py-4 bg-slate-100 text-slate-400 text-[10px] font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest"
+                  className="flex-1 py-4 bg-slate-100 dark:bg-gray-800 text-slate-400 dark:text-gray-400 text-[10px] font-black rounded-2xl hover:bg-slate-200 dark:hover:bg-gray-700 transition-all uppercase tracking-widest"
                 >
                   Nu, anulează
                 </button>
@@ -356,7 +405,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                     updateCardSettings(confirmHideId, { visible: false });
                     setConfirmHideId(null);
                   }}
-                  className="flex-1 py-4 bg-red-600 text-white text-[10px] font-black rounded-2xl hover:bg-red-700 shadow-xl shadow-red-600/20 transition-all uppercase tracking-widest"
+                  className="flex-1 py-4 bg-red-600 dark:bg-red-900 text-white text-[10px] font-black rounded-2xl hover:bg-red-700 dark:hover:bg-red-800 shadow-xl shadow-red-600/20 dark:shadow-red-900/20 transition-all uppercase tracking-widest"
                 >
                   Da, ascunde
                 </button>
@@ -381,7 +430,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                 </div>
                 <button 
                   onClick={() => setShowConfig(false)}
-                  className="p-4 rounded-2xl bg-slate-100 text-slate-400 hover:text-slate-900 transition-all"
+                  className="p-4 rounded-2xl bg-slate-100 dark:bg-gray-800 text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 transition-all"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -406,21 +455,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                       className={cn(
                         "p-5 rounded-3xl border transition-all flex items-center justify-between",
                         settings.visible 
-                          ? "bg-white border-primary shadow-sm" 
-                          : "bg-slate-50 border-slate-100",
+                          ? "bg-white dark:bg-gray-800 border-primary shadow-sm" 
+                          : "bg-slate-50 dark:bg-gray-700 border-slate-100",
                         !isAvailable && "opacity-50 grayscale cursor-not-allowed"
                       )}
                     >
                       <div className="flex items-center gap-4">
                         <div className={cn(
                           "w-12 h-12 rounded-2xl flex items-center justify-center",
-                          settings.visible ? "bg-primary/10 text-primary" : "bg-slate-200 text-slate-400"
+                          settings.visible ? "bg-primary/10 text-primary" : "bg-slate-200 dark:bg-gray-600 text-slate-400"
                         )}>
                           {settings.visible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                         </div>
                         <div>
-                          <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{title}</p>
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                          <p className="text-[11px] font-black text-slate-900 dark:text-gray-100 uppercase tracking-tight">{title}</p>
+                          <p className="text-[8px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest">
                             {isAvailable ? 'Instrument activ' : 'Fără active'}
                           </p>
                         </div>
@@ -432,8 +481,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                           className={cn(
                             "px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all",
                             settings.visible 
-                              ? "bg-slate-900 text-white shadow-lg shadow-slate-900/10" 
-                              : "bg-white border border-slate-200 text-slate-400 hover:text-slate-900"
+                              ? "bg-slate-900 dark:bg-gray-900 text-white shadow-lg shadow-slate-900/10" 
+                              : "bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-400 hover:text-slate-900"
                           )}
                         >
                           {settings.visible ? 'Afișat' : 'Ascuns'}
@@ -446,7 +495,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
 
               <button 
                 onClick={() => setShowConfig(false)}
-                className="w-full py-5 bg-slate-900 text-white text-[10px] font-black rounded-3xl mt-8 hover:bg-primary transition-all uppercase tracking-[0.2em] shadow-xl shadow-slate-900/20"
+                className="w-full py-5 bg-slate-900 dark:bg-gray-900 text-white text-[10px] font-black rounded-3xl mt-8 hover:bg-primary transition-all uppercase tracking-[0.2em] shadow-xl shadow-slate-900/20"
               >
                 Salvează Configurația
               </button>
@@ -455,20 +504,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
         )}
       </AnimatePresence>
 
+      {/* Stale Rates Banner */}
+      {isRatesStale && (
+        <div className="flex items-center gap-2 px-4 py-2 mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm">
+          <AlertTriangle size={16} />
+          <span>Cursurile valutare ar putea fi neactualizate. Ultima actualizare: {new Date(rates.lastUpdated).toLocaleDateString('ro-RO')}</span>
+        </div>
+      )}
+
       {/* Main Bento Row */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Large Summary Card */}
         {cardSettings['portfolio_summary'].visible && (
           <motion.div 
             variants={itemVariants}
-            className="lg:col-span-8 flex flex-col bg-white p-6 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500"
+            whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className="lg:col-span-8 flex flex-col bg-white dark:bg-gray-800 p-6 md:p-10 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm relative group transition-all duration-500"
           >
             <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-8 z-10">
               <div className="w-full">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <p className="text-slate-400 dark:text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">
                       {selectedCurrency === 'ALL' ? 'Sold Total Portofoliu' : `Total ${selectedCurrency} (RON)`}
                     </p>
                   </div>
@@ -477,28 +536,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                       <select 
                         value={cardSettings['portfolio_summary'].currency}
                         onChange={(e) => updateCardSettings('portfolio_summary', { currency: e.target.value as any })}
-                        className="appearance-none bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 pr-10 text-[9px] font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className="appearance-none bg-slate-50 dark:bg-gray-700 border border-slate-100 dark:border-gray-600 rounded-xl px-4 py-2 pr-10 text-[9px] font-black uppercase focus:outline-none focus:ring-2 focus:ring-primary/20"
                       >
                         <option value="BASE">Auto ({displayCurrencyMode})</option>
                         {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <ChevronDown className="w-3 h-3 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <ChevronDown className="w-3 h-3 text-slate-400 dark:text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
                     <button 
                       onClick={() => setConfirmHideId('portfolio_summary')}
-                      className="p-2 bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                      className="p-2 bg-slate-50 dark:bg-gray-800 text-slate-400 dark:text-gray-400 hover:text-red-500 transition-all"
                     >
                       <EyeOff className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
                 <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-6">
-                  <h3 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tighter break-all sm:break-normal">
+                  <h3 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 dark:text-gray-100 tracking-tighter break-all sm:break-normal">
                     {formatCurrency(getCardValue('portfolio_summary'), cardSettings['portfolio_summary'].currency === 'BASE' ? displayCurrencyMode as Currency : cardSettings['portfolio_summary'].currency)}
                   </h3>
                   <button 
                     onClick={() => setDisplayCurrencyMode(prev => prev === 'RON' ? 'EUR' : 'RON')}
-                    className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl hover:bg-primary transition-all uppercase tracking-widest flex items-center gap-2 self-start md:mb-1.5 shadow-lg active:scale-95"
+                    className="px-4 py-2 bg-slate-900 dark:bg-gray-900 text-white text-[10px] font-black rounded-xl hover:bg-primary transition-all uppercase tracking-widest flex items-center gap-2 self-start md:mb-1.5 shadow-lg active:scale-95"
                   >
                     <Filter className="w-3 h-3" />
                     Sist. {displayCurrencyMode}
@@ -506,7 +565,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                 </div>
               </div>
               <div className="hidden md:flex gap-2">
-                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-primary group-hover:text-white transition-all cursor-help">
+                <div className="w-12 h-12 bg-slate-50 dark:bg-gray-700 rounded-2xl flex items-center justify-center border border-slate-100 dark:border-gray-600 group-hover:bg-primary group-hover:text-white transition-all cursor-help">
                   <PieChartIcon className="w-6 h-6" />
                 </div>
               </div>
@@ -526,11 +585,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                       outerRadius={75}
                       paddingAngle={5}
                       dataKey="value"
-                      onClick={(data) => {
-                        if (data && data.name) {
-                          onSliceClick({ type: data.name as SavingType });
-                        }
-                      }}
+                      onClick={handlePieClick}
                       cursor="pointer"
                     >
                       {typeData.map((_entry, index) => (
@@ -545,10 +600,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest text-center leading-none mb-1">Categorii</span>
-                  <span className="text-[10px] font-black text-slate-900">{typeData.length} Tipuri</span>
+                  <span className="text-[8px] font-black text-slate-400 dark:text-gray-400 tracking-widest text-center leading-none mb-1">Categorii</span>
+                  <span className="text-[10px] font-black text-slate-900 dark:text-gray-100">{typeData.length} Tipuri</span>
                 </div>
               </div>
+              
+              {/* Mobile-friendly details display */}
+              {activeSliceIndex !== null && (
+                <div className="mt-4 p-4 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg shadow-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-sm font-black text-slate-900 dark:text-gray-100">
+                        {typeData[activeSliceIndex]?.name}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400">
+                        {((typeData[activeSliceIndex]?.value || 0) / filteredTotals.totalInBase * 100).toFixed(1)}% din total
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => setActiveSliceIndex(null)}
+                      className="p-1 text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-300 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-lg font-black text-slate-900 dark:text-gray-100">
+                    {formatCurrency(typeData[activeSliceIndex]?.value || 0, 'RON')}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Chart 2 */}
@@ -564,11 +644,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                       outerRadius={75}
                       paddingAngle={5}
                       dataKey="value"
-                      onClick={(data) => {
-                        if (data && data.name) {
-                          onSliceClick({ currency: data.name as Currency });
-                        }
-                      }}
+                      onClick={handlePieClick}
                       cursor="pointer"
                     >
                       {currencyData.map((_entry, index) => (
@@ -583,10 +659,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                   <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest text-center leading-none mb-1">Monede</span>
-                   <span className="text-[10px] font-black text-slate-900">{currencyData.length} Total</span>
+                   <span className="text-[8px] font-black text-slate-400 dark:text-gray-400 tracking-widest text-center leading-none mb-1">Monede</span>
+                   <span className="text-[10px] font-black text-slate-900 dark:text-gray-100">{currencyData.length} Total</span>
                 </div>
               </div>
+              
+              {/* Mobile-friendly details display for currency chart */}
+              {activeSliceIndex !== null && activeSliceIndex >= typeData.length && (
+                <div className="mt-4 p-4 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg shadow-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-sm font-black text-slate-900 dark:text-gray-100">
+                        {currencyData[activeSliceIndex - typeData.length]?.name}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400">
+                        {((currencyData[activeSliceIndex - typeData.length]?.value || 0) / totals.totalInBase * 100).toFixed(1)}% din total
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => setActiveSliceIndex(null)}
+                      className="p-1 text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-300 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-lg font-black text-slate-900 dark:text-gray-100">
+                    {formatCurrency(currencyData[activeSliceIndex - typeData.length]?.value || 0, 'RON')}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           <motion.div
@@ -605,8 +706,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
             {hasCash && cardSettings['cash_reserve'].visible && (
               <motion.div 
                 variants={itemVariants}
-                whileHover={{ y: -5 }}
-                className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between relative group transition-all duration-500 overflow-hidden"
+                whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="bg-white dark:bg-gray-800 p-8 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm flex flex-col justify-between relative group transition-all duration-500"
               >
                 <div className="flex justify-between items-start z-10">
                   <div className="p-3 bg-primary rounded-2xl group-hover:ring-4 group-hover:ring-primary/20 transition-all duration-500">
@@ -618,29 +720,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                         <select 
                           value={cardSettings['cash_reserve'].currency}
                           onChange={(e) => updateCardSettings('cash_reserve', { currency: e.target.value as any })}
-                          className="appearance-none bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase focus:outline-none"
+                          className="appearance-none bg-slate-50 dark:bg-gray-700 border border-slate-100 dark:border-gray-600 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase focus:outline-none"
                         >
                           <option value="BASE">Auto</option>
                           {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <ChevronDown className="w-2 h-2 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <ChevronDown className="w-2 h-2 text-slate-400 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
                       <button 
                         onClick={() => setConfirmHideId('cash_reserve')}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-500 transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 dark:text-gray-400 hover:text-red-500 transition-all"
                       >
                         <EyeOff className="w-3.5 h-3.5" />
                       </button>
-                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Rezervă Cash</p>
+                      <p className="text-slate-400 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest">Rezervă Cash</p>
                     </div>
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
                       {formatCurrency(getCardValue('cash_reserve', SavingType.CASH_RESERVE), cardSettings['cash_reserve'].currency === 'BASE' ? displayCurrencyMode as Currency : cardSettings['cash_reserve'].currency)}
                     </h3>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-6 z-10">
-                  <div className="w-2 h-2 rounded-full bg-primary/20" />
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fond de urgență</p>
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  <p className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest">Fond de urgență</p>
                 </div>
               </motion.div>
             )}
@@ -648,16 +750,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
             {hasDeposits && cardSettings['bank_deposits'].visible && (
               <motion.div 
                 variants={itemVariants}
-                whileHover={{ y: -5 }}
-                className="bg-slate-900 p-8 rounded-[3rem] shadow-xl shadow-slate-900/10 text-white flex flex-col justify-between border border-slate-800 relative group overflow-hidden transition-all duration-500"
+                whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.4)' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="bg-slate-900 dark:bg-gray-900 p-8 rounded-[3rem] shadow-xl shadow-slate-900/10 text-white flex flex-col justify-between border border-slate-800 dark:border-gray-900 relative group overflow-hidden transition-all duration-500"
               >
                 <div className="z-10">
                   <div className="flex justify-between items-start mb-1">
                     <div className="flex items-center gap-2">
-                       <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Depozite Bancare</p>
+                       <p className="text-slate-500 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest">Depozite Bancare</p>
                        <button 
                           onClick={() => setConfirmHideId('bank_deposits')}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 dark:text-gray-400 hover:text-red-400 transition-all"
                         >
                           <EyeOff className="w-3.5 h-3.5" />
                         </button>
@@ -667,14 +770,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                         <select 
                           value={cardSettings['bank_deposits'].currency}
                           onChange={(e) => updateCardSettings('bank_deposits', { currency: e.target.value as any })}
-                          className="appearance-none bg-white/10 border border-white/10 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase text-white focus:outline-none"
+                          className="appearance-none bg-white dark:bg-gray-800 border border-white dark:border-gray-900 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase text-white focus:outline-none"
                         >
-                          <option value="BASE" className="bg-slate-900">Auto</option>
-                          {activeCurrencies.map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
+                          <option value="BASE" className="bg-slate-900 dark:bg-gray-900">Auto</option>
+                          {activeCurrencies.map(c => <option key={c} value={c} className="bg-slate-900 dark:bg-gray-900">{c}</option>)}
                         </select>
-                        <ChevronDown className="w-2 h-2 text-slate-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <ChevronDown className="w-2 h-2 text-slate-500 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500 dark:bg-emerald-900/20 text-emerald-400 dark:text-emerald-500 rounded-lg">
                         <TrendingUp className="w-3 h-3" />
                         <span className="text-[10px] font-black">{totals.averageDepositYield.toFixed(2)}%</span>
                       </div>
@@ -685,71 +788,87 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                   </h3>
                 </div>
                 <div className="flex items-center gap-2 mt-4 z-10">
-                  <div className="p-2 bg-white/5 rounded-xl group-hover:ring-4 group-hover:ring-white/10 transition-all duration-500">
-                    <Landmark className="w-4 h-4 text-emerald-400" />
+                  <div className="p-2 bg-white dark:bg-gray-800 rounded-xl group-hover:ring-4 group-hover:ring-white dark:group-hover:ring-gray-900/10 transition-all duration-500">
+                    <Landmark className="w-4 h-4 text-emerald-400 dark:text-emerald-500" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Randament Mediu Portofoliu</p>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight italic">Depozite active acum</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest">Randament Mediu Portofoliu</p>
+                    <p className="text-[9px] text-slate-500 dark:text-gray-500 font-bold uppercase tracking-tight italic">Depozite active acum</p>
                   </div>
-                  <ArrowUpRight className="w-3 h-3 text-slate-600 ml-auto group-hover:text-white transition-colors" />
+                  <ArrowUpRight className="w-3 h-3 text-slate-600 dark:text-gray-400 ml-auto group-hover:text-white dark:group-hover:text-gray-100 transition-colors" />
                 </div>
               </motion.div>
             )}
-
-            {/* Gold Card */}
             {hasGold && cardSettings['gold_assets'].visible && (
               <motion.div 
                 variants={itemVariants}
-                whileHover={{ y: -5 }}
-                className="bg-[#facc15] p-8 rounded-[3rem] shadow-xl shadow-yellow-500/10 text-slate-900 flex flex-col justify-between relative group overflow-hidden transition-all duration-500"
+                className="bg-[#facc15] dark:bg-[#facc15]/20 p-8 rounded-[3rem] shadow-xl shadow-yellow-500/10 text-slate-900 dark:text-gray-100 flex flex-col justify-between relative group overflow-hidden transition-all duration-500"
               >
                 <div className="flex justify-between items-start z-10">
-                  <div className="p-3 bg-white/40 rounded-2xl backdrop-blur-sm group-hover:ring-4 group-hover:ring-white/20 transition-all duration-500">
-                    <Coins className="w-6 h-6 text-slate-900" />
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center justify-end gap-2 mb-1">
-                      <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
-                        <select 
-                          value={cardSettings['gold_assets'].currency}
-                          onChange={(e) => updateCardSettings('gold_assets', { currency: e.target.value as any })}
-                          className="appearance-none bg-white/40 border border-white/20 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase focus:outline-none"
-                        >
-                          <option value="BASE">Auto</option>
-                          {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <ChevronDown className="w-2 h-2 text-slate-900/40 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
-                      <button 
-                        onClick={() => setConfirmHideId('gold_assets')}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-900/30 hover:text-red-600 transition-all"
-                      >
-                        <EyeOff className="w-3.5 h-3.5" />
-                      </button>
-                      <p className="text-slate-900/60 text-[10px] font-black uppercase tracking-widest">Aur Fizic / Investiții</p>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-2xl backdrop-blur-sm group-hover:ring-4 group-hover:ring-white dark:group-hover:ring-gray-900/10 transition-all duration-500">
+                    <Coins className="w-6 h-6 text-slate-900 dark:text-gray-100" />
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-500">🥇 Portofoliu Aur</p>
+                      <p className="text-2xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
+                        {formatCurrency(goldData.goldCurrentValueRON, 'RON')}
+                      </p>
                     </div>
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
                       {formatCurrency(getCardValue('gold_assets', SavingType.GOLD), cardSettings['gold_assets'].currency === 'BASE' ? displayCurrencyMode as Currency : cardSettings['gold_assets'].currency)}
                     </h3>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-6 z-10">
-                 <div className="w-2 h-2 rounded-full bg-white/60" />
-                  <p className="text-[10px] font-black text-slate-900/60 uppercase tracking-widest">Rezerva de valoare</p>
+                 <div className="w-2 h-2 rounded-full bg-white dark:bg-gray-800" />
+                  <p className="text-[10px] font-black text-slate-900 dark:text-gray-100 uppercase tracking-widest">Rezerva de valoare</p>
                 </div>
               </motion.div>
+
+            {/* Gold Volatility Chart */}
+            {hasGold && cardSettings['gold_assets'].visible && (
+              <div className="mt-4">
+                <ResponsiveContainer width="100%" height={120}>
+                  <LineChart data={[
+                    { date: '3 luni in urma', priceRON: (rates['XAU'] || 280) * 0.97 },
+                    { date: '2 luni in urma', priceRON: (rates['XAU'] || 280) * 0.98 },
+                    { date: '1 luna in urma', priceRON: (rates['XAU'] || 280) * 0.99 },
+                    { date: 'Acum', priceRON: rates['XAU'] || 280 }
+                  ]} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <Line 
+                      type="monotone" 
+                      dataKey="priceRON" 
+                      stroke={goldData.goldReturnPercent > 0 ? '#10b981' : '#ef4444'} 
+                      strokeWidth={2} 
+                      dot={false}
+                    />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-slate-900 dark:bg-gray-800 text-white px-3 py-2 rounded-lg shadow-xl">
+                              <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-gray-400 mb-1">{payload[0].payload.date}</p>
+                              <p className="text-sm font-black tracking-tight">{formatCurrency(payload[0].value, 'RON')}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             )}
 
             {/* Equities Card */}
             {hasInvestments && cardSettings['equities_assets'].visible && (
               <motion.div 
                 variants={itemVariants}
-                whileHover={{ y: -5 }}
-                className="bg-white p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between relative group transition-all duration-500 overflow-hidden"
+                whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="bg-white dark:bg-gray-800 p-8 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm flex flex-col justify-between relative group transition-all duration-500 overflow-hidden"
               >
                 <div className="flex justify-between items-start z-10">
-                  <div className="p-3 bg-indigo-500 rounded-2xl group-hover:ring-4 group-hover:ring-indigo-500/20 transition-all duration-500">
+                  <div className="p-3 bg-indigo-500 dark:bg-indigo-900 rounded-2xl group-hover:ring-4 group-hover:ring-indigo-500/20 transition-all duration-500">
                     <Activity className="w-6 h-6 text-white" />
                   </div>
                   <div className="text-right">
@@ -758,29 +877,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                         <select 
                           value={cardSettings['equities_assets'].currency}
                           onChange={(e) => updateCardSettings('equities_assets', { currency: e.target.value as any })}
-                          className="appearance-none bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase focus:outline-none"
+                          className="appearance-none bg-slate-50 dark:bg-gray-700 border border-slate-100 dark:border-gray-600 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase focus:outline-none"
                         >
                           <option value="BASE">Auto</option>
                           {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <ChevronDown className="w-2 h-2 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <ChevronDown className="w-2 h-2 text-slate-400 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
                       <button 
                         onClick={() => setConfirmHideId('equities_assets')}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-500 transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 dark:text-gray-400 hover:text-red-500 transition-all"
                       >
                         <EyeOff className="w-3.5 h-3.5" />
                       </button>
-                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Piața de Capital</p>
+                      <p className="text-slate-400 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest">Piața de Capital</p>
                     </div>
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
                       {formatCurrency(getCardValue('equities_assets', SavingType.STOCKS), cardSettings['equities_assets'].currency === 'BASE' ? displayCurrencyMode as Currency : cardSettings['equities_assets'].currency)}
                     </h3>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-6 z-10">
-                  <div className="w-2 h-2 rounded-full bg-indigo-500/20" />
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acțiuni & ETF-uri</p>
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-900" />
+                  <p className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest">Acțiuni & ETF-uri</p>
                 </div>
               </motion.div>
             )}
@@ -792,34 +911,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
       {cardSettings['portfolio_evolution'].visible && (
         <motion.div 
           variants={itemVariants}
-          className="bg-white p-6 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500"
+          className="bg-white dark:bg-gray-800 p-6 md:p-10 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm relative group hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500"
         >
           <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
             <div>
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3 mb-2">
-                <div className="w-1.5 h-6 bg-primary rounded-full shadow-lg shadow-primary/30" />
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 dark:text-gray-400 flex items-center gap-3 mb-2">
+                <div className="w-1.5 h-6 bg-primary dark:bg-gray-900 rounded-full shadow-lg shadow-primary/30 dark:shadow-gray-900/30" />
                 Evoluție Istorică & Proiectată
               </h4>
               <div className="flex items-center gap-4">
-                <h3 className="text-2xl font-black text-slate-900 tracking-tighter">Analiză Portofoliu</h3>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-gray-100 tracking-tighter">Analiză Portofoliu</h3>
                 <button 
                   onClick={() => setConfirmHideId('portfolio_evolution')}
-                  className="opacity-0 group-hover:opacity-100 p-2 bg-slate-50 text-slate-400 hover:text-red-500 rounded-xl transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-2 bg-slate-50 dark:bg-gray-800 text-slate-400 dark:text-gray-400 hover:text-red-500 rounded-xl transition-all"
                 >
                   <EyeOff className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 italic">Include dobanda netă depozite (-10% impozit)</p>
+              <p className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest mt-1 italic">Include dobanda netă depozite (-10% impozit)</p>
             </div>
             <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-primary" />
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Portofoliu</span>
+              <span className="text-[9px] font-black text-slate-500 dark:text-gray-500 uppercase tracking-widest">Total Portofoliu</span>
             </div>
             {hasDeposits && (
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Depozite + Dobândă</span>
+                <span className="text-[9px] font-black text-slate-500 dark:text-gray-500 uppercase tracking-widest">Depozite + Dobândă</span>
               </div>
             )}
           </div>
@@ -842,20 +961,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     return (
-                      <div className="bg-slate-900 p-4 rounded-3xl shadow-2xl border border-white/10 backdrop-blur-xl">
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">{payload[0].payload.fullDate}</p>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-8">
-                            <span className="text-[10px] font-black text-primary uppercase">Total:</span>
-                            <span className="text-sm font-black text-white">{formatCurrency(payload[0].value as number, 'RON')}</span>
-                          </div>
-                          {hasDeposits && payload[1] && (
-                            <div className="flex items-center justify-between gap-8">
-                              <span className="text-[10px] font-black text-emerald-400 uppercase">Depozite:</span>
-                              <span className="text-sm font-black text-white">{formatCurrency(payload[1].value as number, 'RON')}</span>
-                            </div>
-                          )}
-                        </div>
+                      <div className="bg-slate-900 dark:bg-gray-800 text-white px-3 py-2 rounded-lg shadow-xl">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-gray-400 mb-1">{payload[0].payload.date}</p>
+                        <p className="text-sm font-black tracking-tight">{formatCurrency(payload[0].value, 'RON')}</p>
                       </div>
                     );
                   }
@@ -892,26 +1000,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ savings, totals, rates, on
       {hasDeposits && cardSettings['deposits_evolution'].visible && (
         <motion.div 
           variants={itemVariants}
-          className="bg-slate-900 p-6 md:p-10 rounded-[3rem] border border-slate-800 shadow-2xl relative overflow-hidden group transition-all duration-500"
+          className="bg-slate-900 dark:bg-gray-900 p-6 md:p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group transition-all duration-500"
         >
           <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4 relative z-10">
             <div>
               <h4 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-400 flex items-center gap-3 mb-2">
-                <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/30" />
+                <div className="w-1.5 h-6 bg-emerald-500 dark:bg-emerald-900 rounded-full shadow-lg shadow-emerald-500/30 dark:shadow-emerald-900/30" />
                 Focus: Depozite Bancare
               </h4>
               <div className="flex items-center gap-4">
                 <h3 className="text-2xl font-black text-white tracking-tighter">Evoluție Dobândă Netă</h3>
                 <button 
                   onClick={() => setConfirmHideId('deposits_evolution')}
-                  className="opacity-0 group-hover:opacity-100 p-2 bg-white/5 text-slate-500 hover:text-red-400 rounded-xl transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-2 bg-white dark:bg-gray-800 text-slate-500 dark:text-gray-400 hover:text-red-400 rounded-xl transition-all"
                 >
                   <EyeOff className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1 italic">Proiecție acumulată pe 12 luni (taxare 10% inclusă)</p>
+              <p className="text-[10px] font-black text-slate-500 dark:text-gray-500 uppercase tracking-widest mt-1 italic">Proiecție acumulată pe 12 luni (taxare 10% inclusă)</p>
             </div>
-            <div className="p-4 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
+            <div className="p-4 bg-white dark:bg-gray-800 rounded-3xl border border-white dark:border-gray-900 backdrop-blur-md">
                <Landmark className="w-6 h-6 text-emerald-500" />
             </div>
           </div>

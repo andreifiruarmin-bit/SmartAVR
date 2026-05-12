@@ -19,6 +19,7 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 | **TypeScript** | 5.8.x | Limbaj de programare (Type Safety) |
 | **Vite** | 6.x | Build Tool și Development Server |
 | **Tailwind CSS** | 4.x | Styling utilitar (interfață modernă, responsive) |
+| **useDarkMode hook** | custom | Persistență temă în localStorage |
 | **Recharts** | 3.8.x | Vizualizare date (grafice interactive) |
 | **Motion** | 12.x | Animații și tranziții fluide (fostul Framer Motion) |
 | **Lucide React** | 0.5xx | Iconografie |
@@ -50,26 +51,28 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 │
 ├── public/                    # Asset-uri statice (logo, favicon)
 │
-└── src/
-    ├── main.tsx              # Entry point React
-    ├── App.tsx               # Componenta Root, inițializare Auth și State
-    ├── constants.ts          # Constante globale (monede, opțiuni default)
-    ├── index.css             # Stiluri globale și Tailwind imports
-    ├── types.ts              # Definiții interfețe și enum-uri TypeScript
-    │
-    ├── components/           # Componente React Reutilizabile
-    │   ├── AIAssistant.tsx   # Chatbot-ul inteligent (Gemini AI)
-    │   ├── AddSavingModal.tsx # Dialog pentru adăugarea activelor
-    │   ├── Auth.tsx          # Formulare Login/Signup Supabase
-    │   ├── Dashboard.tsx     # Ecranul principal cu grafice și statistici
-    │   ├── ErrorBoundary.tsx # Catch-all pentru crash-uri UI
-    │   ├── Navigation.tsx    # Bara de navigare (Desktop/Mobile)
-    │   ├── SavingForm.tsx    # Formularul dinamic pentru active noi
-    │   └── SavingsList.tsx   # Lista detaliată de active cu filtre și sortare
-    │
-    └── lib/
-        ├── supabase.ts       # Configurație client Supabase
-        └── utils.ts          # Helperi styling (cn) și formatare date
+├── src/
+│   ├── hooks/               # Custom React Hooks
+│   │   └── useDarkMode.ts   # Hook pentru dark mode cu localStorage persistență
+│   ├── main.tsx              # Entry point React
+│   ├── App.tsx               # Componenta Root, inițializare Auth și State
+│   ├── constants.ts          # Constante globale (monede, opțiuni default)
+│   ├── index.css             # Stiluri globale și Tailwind imports
+│   ├── types.ts              # Definiții interfețe și enum-uri TypeScript
+│   │
+│   ├── components/           # Componente React Reutilizabile
+│   │   ├── AIAssistant.tsx   # Chatbot-ul inteligent (Gemini AI)
+│   │   ├── AddSavingModal.tsx # Dialog pentru adăugarea activelor
+│   │   ├── Auth.tsx          # Formulare Login/Signup Supabase
+│   │   ├── Dashboard.tsx     # Ecranul principal cu grafice și statistici
+│   │   ├── ErrorBoundary.tsx # Catch-all pentru crash-uri UI
+│   │   ├── Navigation.tsx    # Bara de navigare (Desktop/Mobile)
+│   │   ├── SavingForm.tsx    # Formularul dinamic pentru active noi
+│   │   └── SavingsList.tsx   # Lista detaliată de active cu filtre și sortare
+│   │
+│   └── lib/
+│       ├── supabase.ts       # Configurație client Supabase
+│       └── utils.ts          # Helperi styling (cn) și formatare date
 ```
 
 ---
@@ -144,9 +147,23 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 ## 7. Componentele Principale
 
 ### Dashboard.tsx
-- **Props:** `savings: Saving[]`, `rates: ExchangeRates`.
+- **Props:** `savings: Saving[]`, `rates: ExchangeRates`, `onSliceClick: (filter: { type?: SavingType; currency?: Currency }) => void`, `loading?: boolean`.
 - **Funcție:** Calculează totalurile per monedă și total RON. Randeză graficele Recharts (Composition Chart, Evolution Chart).
-- **Return:** UI-ul principal cu overview-ul financiar.
+- **Interactivitate Pie Chart:** 
+  - Click behavior cu debounce (300ms) pentru a distinge single vs double click
+  - Primul click: Afișează detalii mobile-friendly pentru secțiunea activă (nume, valoare, procent)
+  - Al doilea click: Navighează/filtrează SavingsList după tipul/moneda respectivă
+  - State management: `activeSliceIndex` și `clickCount` cu timer pentru debounce
+- **Animații Carduri:** 
+  - Toate cardurile de sumar sunt înveluite în `motion.div` cu hover animations
+  - Scale effect: `scale: 1.02` la hover
+  - Box shadow adaptiv: Light mode `'0 8px 30px rgba(0,0,0,0.12)'`, Dark mode `'0 8px 30px rgba(0,0,0,0.4)'`
+  - Spring transition: `{ type: 'spring', stiffness: 300, damping: 20 }`
+- **Banner Cursuri Neactualizate:**
+  - Afișează banner de alertă când `rates.lastUpdated` este mai vechi de 24 ore
+  - Iconiță `AlertTriangle` din Lucide React
+  - Mesaj cu data ultimei actualizări formatată
+- **Return:** UI-ul principal cu overview-ul financiar interactiv și animat.
 
 ### AIAssistant.tsx
 - **State:** `messages`, `isOpen`.
@@ -187,11 +204,13 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 - `VITE_SUPABASE_ANON_KEY`: Cheia publică pentru client.
 - `GEMINI_API_KEY`: Cheie API Google (stocată securizat pe Netlify, neaccesibilă în browser).
 - `VITE_CURRENCY_API_KEY`: (Optional) Cheie pentru refresh rate-uri valutare live.
+- `GOLD_API_KEY`: Cheie API pentru prețul aurului (stocată securizat pe Netlify).
+- `BVB_API_KEY`: Cheie API pentru BVB (stocată securizat pe Netlify).
 
 ---
 
 ## 11. TODO / Roadmap
-1. [ ] Implementare Dark Mode complet.
+1. [x] Implementare Dark Mode complet.
 2. [ ] Sistem de notificări pentru scadențe depozite (Service Workers).
 3. [ ] Integrare cu API-uri bancare prin Open Banking (Specter/SaltEdge) - Pro Feature.
 4. [ ] Modul dedicat pentru Imobiliare (Chirii, Taxe, Randament net).
