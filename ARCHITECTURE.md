@@ -163,17 +163,18 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 
 ## 7. Componentele Principale
 
-### Dashboard (Modularizat)
+### Dashboard (Modularizat - Mobile-First)
 - **Arhitectură:** Componentă orchestrator slim (~150 linii) care orchestrează carduri dedicate și hook-uri specializate
+- **Design Mobile-First:** Aplicația este proiectată mobile-first ca bază pentru viitoarea aplicație Android. Toate elementele interactive respectă touch target minimum 40×40px.
 - **Structură modulară:**
-  - `Dashboard.tsx` - Orchestrator principal care importează și coordonează toate componentele
-  - `DashboardHeader.tsx` - Header cu titlu, dark mode toggle și buton de configurare
+  - `Dashboard.tsx` - Orchestrator principal cu grid responsive (2 coloane mobile, 4 desktop)
+  - `DashboardHeader.tsx` - Header cu titlu, DarkModeToggle integrat și buton de configurare
   - `DashboardConfig.tsx` - Panou configurare carduri cu AnimatePresence modal
   - `hooks/useDashboardConfig.ts` - Management stări carduri + localStorage persistence
   - `hooks/useDashboardData.ts` - Toate calculele useMemo (goldData, filteredTotals, portfolioHistory, etc.)
   - `hooks/usePieInteraction.ts` - Logica click/double-click pentru PieChart cu debounce
-  - `cards/PortfolioSummaryCard.tsx` - Sold total + 2x PieChart (categorii + monede)
-  - `cards/CashReserveCard.tsx` - Card dedicat pentru rezervă cash
+  - `cards/PortfolioSummaryCard.tsx` - Sold total non-hideable + 2x PieChart (categorii + monede)
+  - `cards/CashReserveCard.tsx` - Card dedicat pentru rezervă cash cu butoane always-visible
   - `cards/BankDepositsCard.tsx` - Card dedicat pentru depozite bancare cu randament mediu
   - `cards/GoldAssetsCard.tsx` - Card dedicat pentru aur cu grafic volatilitate LineChart
   - `cards/EquitiesCard.tsx` - Card dedicat pentru acțiuni & ETF cu performanțe simboluri
@@ -185,6 +186,15 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
   - Logica specifică este izolată în hook-uri custom reutilizabile
   - Zero schimbări de funcționalitate - doar reorganizare cod
   - Fiecare fișier nou compilează independent fără erori TypeScript
+- **Reguli UI Mobile-First:**
+  - **Portfolio Summary Card:** Cardul sold total este non-hideable (nu are buton de ascundere) și nu are selector de monedă local (doar sistem RON/EUR)
+  - **Dark Mode Toggle:** Repoziționat în DashboardHeader lângă titlu, eliminat din Navigation
+  - **Butoane Hide/Show:** Always-visible pe toate cardurile (exceptat portfolio_summary) cu touch targets de 40×40px minimum
+  - **Selectoare Monedă:** Always-visible pe carduri cu styling mobile-friendly (text-xs, padding adecvat)
+  - **Grid Layout:** 2 coloane pe mobile, 4 coloane pe desktop cu gap responsive
+  - **Text Responsive:** Valori mari folosesc `text-2xl md:text-3xl lg:text-4xl` cu `break-all` pentru a preveni overflow
+  - **Padding Responsive:** Carduri folosesc `px-4 py-3 md:px-6 md:py-4 lg:p-8` pentru touch targets adecvate
+  - **Bottom Padding:** Container principal are `pb-24 md:pb-8` pentru a nu fi acoperit de navigation bar mobil
 - **Interactivitate Pie Chart:** 
   - Click behavior cu debounce (300ms) pentru a distinge single vs double click
   - Primul click: Afișează detalii mobile-friendly pentru secțiunea activă

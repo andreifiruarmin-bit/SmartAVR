@@ -63,7 +63,7 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
       variants={itemVariants}
       whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="flex flex-col bg-white dark:bg-gray-800 p-6 md:p-10 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm relative group transition-all duration-500"
+      className="flex flex-col bg-white dark:bg-gray-800 px-4 py-3 md:px-6 md:py-4 lg:p-10 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm relative group transition-all duration-500"
     >
       {/* Stale Rates Banner */}
       {isRatesStale && (
@@ -84,7 +84,7 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
             </div>
           </div>
           <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-6">
-            <h3 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 dark:text-gray-100 tracking-tighter break-all sm:break-normal">
+            <h3 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-gray-100 tracking-tighter break-all sm:break-normal">
               {formatCurrency(getPortfolioValue(), displayCurrencyMode as Currency)}
             </h3>
             <button 

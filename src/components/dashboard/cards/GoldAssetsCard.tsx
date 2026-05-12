@@ -60,9 +60,10 @@ export const GoldAssetsCard: React.FC<GoldAssetsCardProps> = ({
         </div>
         <button 
           onClick={onToggleVisibility}
-          className="p-2 text-slate-600 dark:text-gray-400 hover:text-yellow-600 transition-all rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/20"
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+          aria-label={isVisible ? 'Ascunde card' : 'Afișează card'}
         >
-          <Eye className="w-4 h-4" />
+          <Eye size={18} />
         </button>
       </motion.div>
     );
@@ -72,7 +73,7 @@ export const GoldAssetsCard: React.FC<GoldAssetsCardProps> = ({
     <>
       <motion.div 
         variants={itemVariants}
-        className="bg-[#facc15] dark:bg-[#facc15]/20 p-8 rounded-[3rem] shadow-xl shadow-yellow-500/10 text-slate-900 dark:text-gray-100 flex flex-col justify-between relative group overflow-hidden transition-all duration-500"
+        className="bg-[#facc15] dark:bg-[#facc15]/20 px-4 py-3 md:px-6 md:py-4 lg:p-8 rounded-[3rem] shadow-xl shadow-yellow-500/10 text-slate-900 dark:text-gray-100 flex flex-col justify-between relative group overflow-hidden transition-all duration-500"
       >
         <div className="flex justify-between items-start z-10">
           <div className="p-3 bg-white dark:bg-gray-800 rounded-2xl backdrop-blur-sm group-hover:ring-4 group-hover:ring-white dark:group-hover:ring-gray-900/10 transition-all duration-500">
@@ -83,26 +84,28 @@ export const GoldAssetsCard: React.FC<GoldAssetsCardProps> = ({
               <button 
                 onClick={onRefreshPrice}
                 disabled={isRefreshing}
-                className="p-1 text-slate-600 dark:text-gray-400 hover:text-yellow-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Reîmprospătează prețul aurului"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
               <div className="relative">
                 <select 
                   value={currency}
                   onChange={(e) => onCurrencyChange(e.target.value as any)}
-                  className="appearance-none bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase focus:outline-none text-slate-900 dark:text-gray-100"
+                  className="appearance-none bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 pr-8 text-xs font-black uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
                 >
-                  <option value="BASE">Auto</option>
+                  <option value="BASE">AUTO</option>
                   {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <ChevronDown className="w-2 h-2 text-slate-600 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
               <button 
                 onClick={onToggleVisibility}
-                className="p-1 text-slate-600 dark:text-gray-400 hover:text-red-500 transition-all"
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+                aria-label="Ascunde card"
               >
-                <EyeOff className="w-3.5 h-3.5" />
+                <EyeOff size={18} />
               </button>
             </div>
             <p className="text-slate-600 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest">Aur</p>
@@ -112,7 +115,7 @@ export const GoldAssetsCard: React.FC<GoldAssetsCardProps> = ({
         <div className="z-10">
           <div className="mb-4">
             <p className="text-[9px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-500 mb-1">🥇 Portofoliu Aur</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
+            <p className="text-xl md:text-2xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
               {formatCurrency(goldData.goldCurrentValueRON, 'RON')}
             </p>
             <p className="text-xs text-slate-600 dark:text-gray-400 mt-1">
@@ -128,7 +131,7 @@ export const GoldAssetsCard: React.FC<GoldAssetsCardProps> = ({
             </div>
           </div>
           
-          <h3 className="text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
+          <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
             {formatCurrency(goldValue, 'RON')}
             <span className="text-[10px] font-normal text-slate-600 dark:text-gray-400 ml-2">Valoare în RON</span>
           </h3>

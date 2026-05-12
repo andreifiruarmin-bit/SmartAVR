@@ -51,9 +51,10 @@ export const CashReserveCard: React.FC<CashReserveCardProps> = ({
         </div>
         <button 
           onClick={onToggleVisibility}
-          className="p-2 text-slate-400 dark:text-gray-400 hover:text-primary transition-all rounded-xl hover:bg-primary/10"
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+          aria-label={isVisible ? 'Ascunde card' : 'Afișează card'}
         >
-          <Eye className="w-4 h-4" />
+          <Eye size={18} />
         </button>
       </motion.div>
     );
@@ -64,7 +65,7 @@ export const CashReserveCard: React.FC<CashReserveCardProps> = ({
       variants={itemVariants}
       whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="bg-white dark:bg-gray-800 p-8 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm flex flex-col justify-between relative group transition-all duration-500"
+      className="bg-white dark:bg-gray-800 px-4 py-3 md:px-6 md:py-4 lg:p-8 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm flex flex-col justify-between relative group transition-all duration-500"
     >
       <div className="flex justify-between items-start z-10">
         <div className="p-3 bg-primary rounded-2xl group-hover:ring-4 group-hover:ring-primary/20 transition-all duration-500">
@@ -76,22 +77,23 @@ export const CashReserveCard: React.FC<CashReserveCardProps> = ({
               <select 
                 value={currency}
                 onChange={(e) => onCurrencyChange(e.target.value as any)}
-                className="appearance-none bg-slate-50 dark:bg-gray-700 border border-slate-100 dark:border-gray-600 rounded-lg px-2 py-1 pr-6 text-[8px] font-black uppercase focus:outline-none"
+                className="appearance-none bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 pr-8 text-xs font-black uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
               >
-                <option value="BASE">Auto</option>
+                <option value="BASE">AUTO</option>
                 {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <ChevronDown className="w-2 h-2 text-slate-400 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
             <button 
               onClick={onToggleVisibility}
-              className="p-1 text-slate-300 dark:text-gray-400 hover:text-red-500 transition-all"
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+              aria-label="Ascunde card"
             >
-              <EyeOff className="w-3.5 h-3.5" />
+              <EyeOff size={18} />
             </button>
           </div>
           <p className="text-slate-400 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest">Rezervă Cash</p>
-          <h3 className="text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
+          <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
             {formatCurrency(cashValue, displayCurrency)}
           </h3>
         </div>

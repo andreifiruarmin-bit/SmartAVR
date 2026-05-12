@@ -68,8 +68,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       />
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8">
+      <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 md:gap-4 lg:gap-6">
+        <div className="col-span-2 lg:col-span-8">
           <PortfolioSummaryCard
             savings={savings}
             totals={totals}
@@ -90,7 +90,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {(data.hasCash || data.hasDeposits || data.hasGold || data.hasInvestments) && (
-          <div className="lg:col-span-4 grid grid-cols-1 gap-6">
+          <div className="col-span-2 lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 lg:gap-6">
             {data.hasCash && (
               <CashReserveCard
                 value={data.getCardValue('cash_reserve', SavingType.CASH_RESERVE)}
