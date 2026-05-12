@@ -11,7 +11,7 @@ import { Saving, SavingType, Currency } from './types';
 import { DEFAULT_RATES, BASE_CURRENCY } from './constants';
 import { cn, formatCurrency, convertToRON, fetchLiveRates } from './lib/utils';
 import { useDarkMode } from './hooks/useDarkMode';
-import { Dashboard } from './components/Dashboard';
+import { Dashboard } from './components/dashboard';
 import { SavingsList } from './components/SavingsList';
 import { AddSavingModal } from './components/AddSavingModal';
 import { Auth } from './components/Auth';
@@ -412,8 +412,6 @@ export default function App() {
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         onAddClick={() => setIsModalOpen(true)}
-        isDark={isDark}
-        toggleDark={toggleDark}
       />
 
       <AddSavingModal

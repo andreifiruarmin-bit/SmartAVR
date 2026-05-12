@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart as PieChartIcon, List, Plus, Sun, Moon, FileText, Shield } from 'lucide-react';
+import { PieChart as PieChartIcon, List, Plus, FileText, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -7,11 +7,9 @@ interface NavigationProps {
   activeTab: 'dashboard' | 'list';
   setActiveTab: (tab: 'dashboard' | 'list') => void;
   onAddClick: () => void;
-  isDark: boolean;
-  toggleDark: () => void;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onAddClick, isDark, toggleDark }) => {
+export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, onAddClick }) => {
   return (
     <>
       {/* Desktop Navigation */}
@@ -57,24 +55,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
           </div>
         </button>
         
-        {/* Dark Mode Toggle - Desktop */}
-        <button
-          onClick={toggleDark}
-          className="relative px-4 py-3 rounded-2xl text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all z-10"
-          aria-label="Toggle dark mode"
-        >
-          <motion.div
-            className="flex items-center justify-center w-8 h-8"
-            whileHover={{ rotate: 180 }}
-            transition={{ duration: 0.3 }}
-          >
-            {isDark ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
-          </motion.div>
-        </button>
 
         {/* Legal Links - Desktop */}
         <div className="hidden md:flex items-center gap-3">
@@ -160,27 +140,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             <span className="text-[10px] font-black uppercase tracking-tighter">Active</span>
           </button>
           
-          {/* Dark Mode Toggle - Mobile */}
-          <button
-            onClick={toggleDark}
-            className="flex flex-col items-center gap-1.5 transition-all outline-none group"
-            aria-label="Toggle dark mode"
-          >
-            <div className="p-2 rounded-2xl transition-all relative group-hover:bg-slate-50">
-              <motion.div
-                className="flex items-center justify-center"
-                whileHover={{ rotate: 180 }}
-                transition={{ duration: 0.3 }}
-              >
-                {isDark ? (
-                  <Sun className="w-5 h-5 text-slate-400" />
-                ) : (
-                  <Moon className="w-5 h-5 text-slate-400" />
-                )}
-              </motion.div>
-            </div>
-            <span className="text-[8px] font-black uppercase tracking-tighter text-slate-400">Temă</span>
-          </button>
         </div>
       </nav>
 

@@ -64,7 +64,24 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 │   │   ├── AIAssistant.tsx   # Chatbot-ul inteligent (Gemini AI)
 │   │   ├── AddSavingModal.tsx # Dialog pentru adăugarea activelor
 │   │   ├── Auth.tsx          # Formulare Login/Signup Supabase
-│   │   ├── Dashboard.tsx     # Ecranul principal cu grafice și statistici
+│   │   ├── dashboard/         # Dashboard modularizat (orchestrator + carduri dedicate)
+│   │   │   ├── index.ts          # Barrel export pentru Dashboard
+│   │   │   ├── Dashboard.tsx      # Orchestrator slim (~150 linii)
+│   │   │   ├── DashboardHeader.tsx        # Header cu titlu, dark mode, filtre
+│   │   │   ├── DashboardConfig.tsx        # Panoul de configurare (AnimatePresence modal)
+│   │   │   ├── types.ts          # DashboardProps, CardSettings, GoldData, variante animație
+│   │   │   ├── hooks/           # Hook-uri custom pentru logică Dashboard
+│   │   │   │   ├── useDashboardConfig.ts  # cardSettings + localStorage persistence
+│   │   │   ├── useDashboardData.ts    # toate calculele useMemo
+│   │   │   └── usePieInteraction.ts   # logica click/double-click pie
+│   │   └── cards/           # Carduri dedicate pentru fiecare instrument
+│   │       ├── PortfolioSummaryCard.tsx   # Sold total + 2x PieChart
+│   │       ├── CashReserveCard.tsx        # Rezervă cash
+│   │       ├── BankDepositsCard.tsx       # Depozite bancare
+│   │       ├── GoldAssetsCard.tsx         # Aur + grafic volatilitate
+│   │       ├── EquitiesCard.tsx           # Acțiuni & ETF
+│   │       └── PortfolioEvolutionCard.tsx # AreaChart evoluție istorică
+│   │   ├── DarkModeToggle.tsx # Hook pentru dark mode cu localStorage persistență
 │   │   ├── ErrorBoundary.tsx # Catch-all pentru crash-uri UI
 │   │   ├── Navigation.tsx    # Bara de navigare (Desktop/Mobile)
 │   │   ├── SavingForm.tsx    # Formularul dinamic pentru active noi
@@ -146,16 +163,35 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 
 ## 7. Componentele Principale
 
-### Dashboard.tsx
-- **Props:** `savings: Saving[]`, `rates: ExchangeRates`, `onSliceClick: (filter: { type?: SavingType; currency?: Currency }) => void`, `loading?: boolean`.
-- **Funcție:** Calculează totalurile per monedă și total RON. Randeză graficele Recharts (Composition Chart, Evolution Chart).
+### Dashboard (Modularizat)
+- **Arhitectură:** Componentă orchestrator slim (~150 linii) care orchestrează carduri dedicate și hook-uri specializate
+- **Structură modulară:**
+  - `Dashboard.tsx` - Orchestrator principal care importează și coordonează toate componentele
+  - `DashboardHeader.tsx` - Header cu titlu, dark mode toggle și buton de configurare
+  - `DashboardConfig.tsx` - Panou configurare carduri cu AnimatePresence modal
+  - `hooks/useDashboardConfig.ts` - Management stări carduri + localStorage persistence
+  - `hooks/useDashboardData.ts` - Toate calculele useMemo (goldData, filteredTotals, portfolioHistory, etc.)
+  - `hooks/usePieInteraction.ts` - Logica click/double-click pentru PieChart cu debounce
+  - `cards/PortfolioSummaryCard.tsx` - Sold total + 2x PieChart (categorii + monede)
+  - `cards/CashReserveCard.tsx` - Card dedicat pentru rezervă cash
+  - `cards/BankDepositsCard.tsx` - Card dedicat pentru depozite bancare cu randament mediu
+  - `cards/GoldAssetsCard.tsx` - Card dedicat pentru aur cu grafic volatilitate LineChart
+  - `cards/EquitiesCard.tsx` - Card dedicat pentru acțiuni & ETF cu performanțe simboluri
+  - `cards/PortfolioEvolutionCard.tsx` - Card dedicat pentru evoluție istorică cu AreaChart
+  - `types.ts` - Tipuri și constante partajate (DashboardProps, CardSettings, GoldData, variante animație)
+  - `index.ts` - Barrel export pentru importuri curate
+- **Principii modularizare:**
+  - Fiecare instrument de investiție are cardul său dedicat în `src/components/dashboard/cards/`
+  - Logica specifică este izolată în hook-uri custom reutilizabile
+  - Zero schimbări de funcționalitate - doar reorganizare cod
+  - Fiecare fișier nou compilează independent fără erori TypeScript
 - **Interactivitate Pie Chart:** 
   - Click behavior cu debounce (300ms) pentru a distinge single vs double click
-  - Primul click: Afișează detalii mobile-friendly pentru secțiunea activă (nume, valoare, procent)
+  - Primul click: Afișează detalii mobile-friendly pentru secțiunea activă
   - Al doilea click: Navighează/filtrează SavingsList după tipul/moneda respectivă
   - State management: `activeSliceIndex` și `clickCount` cu timer pentru debounce
 - **Animații Carduri:** 
-  - Toate cardurile de sumar sunt înveluite în `motion.div` cu hover animations
+  - Toate cardurile folosesc `motion.div` cu hover animations
   - Scale effect: `scale: 1.02` la hover
   - Box shadow adaptiv: Light mode `'0 8px 30px rgba(0,0,0,0.12)'`, Dark mode `'0 8px 30px rgba(0,0,0,0.4)'`
   - Spring transition: `{ type: 'spring', stiffness: 300, damping: 20 }`
@@ -163,7 +199,8 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
   - Afișează banner de alertă când `rates.lastUpdated` este mai vechi de 24 ore
   - Iconiță `AlertTriangle` din Lucide React
   - Mesaj cu data ultimei actualizări formatată
-- **Return:** UI-ul principal cu overview-ul financiar interactiv și animat.
+- **Return:** UI-ul principal orchestrat ca sumă de componente modulare, independente și reutilizabile.
+- **Extensibilitate:** Adăugarea unui nou instrument înseamnă crearea unui card nou în folderul `cards/` și înregistrarea lui în orchestrator.
 
 ### AIAssistant.tsx
 - **State:** `messages`, `isOpen`.
