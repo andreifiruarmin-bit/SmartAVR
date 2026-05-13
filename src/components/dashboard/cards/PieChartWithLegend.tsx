@@ -49,27 +49,30 @@ export const PieChartWithLegend: React.FC<PieChartWithLegendProps> = ({
 
   const activeSlice = externalSelectedSlice !== undefined ? externalSelectedSlice : internalActiveSlice;
 
-  const handleClick = (entry: any) => {
+  const handleClick = (entry: any, e?: React.MouseEvent) => {
     if (!entry || !entry.name) return;
+    if (e && e.stopPropagation) e.stopPropagation();
     
     const name = entry.name;
     
     if (activeSlice === name) {
-      // Second click on the same slice: trigger drill-down/filtering action
+      // Second click on the same slice: trigger confirmed action (filtering/drill-down)
       onDoubleClick?.(entry);
     } else {
-      // First click: select and highlight (not filtering yet)
+      // First click: select and highlight vizually only
       setInternalActiveSlice(name);
       onSliceClick?.(entry);
     }
   };
 
-  // Listen for clicks outside to reset
+  // Listen for clicks outside to reset visual selection
   React.useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (!containerRef.current || activeSlice === null) return;
+      // If we don't have an active slice, nothing to reset
+      if (activeSlice === null) return;
       
-      if (!containerRef.current.contains(e.target as Node)) {
+      // If click is outside the entire component container, reset
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setInternalActiveSlice(null);
         onSliceClick?.(null);
       }

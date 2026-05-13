@@ -17,9 +17,10 @@ import { DepositsSubMenu } from './submenus/DepositsSubMenu';
 import { EquitiesSubMenu } from './submenus/EquitiesSubMenu';
 import { GoldSubMenu } from './submenus/GoldSubMenu';
 import { RentSubMenu } from './submenus/RentSubMenu';
-import { EyeOff, TrendingUp } from 'lucide-react';
+import { EyeOff, TrendingUp, ChevronLeft, Filter } from 'lucide-react';
 import { getAssetAttributes } from '../../lib/assetUtils';
 import { convertToRON } from '../../lib/utils';
+import { SavingsResultsView } from './SavingsResultsView';
 
 interface DashboardProps {
   isDark: boolean;
@@ -42,7 +43,7 @@ interface DashboardProps {
   onOpenLegal: (type: 'terms' | 'privacy' | 'gdpr') => void;
 }
 
-type SubView = 'main' | SavingType;
+type SubView = 'main' | SavingType | 'savings-list';
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
   isDark,
@@ -95,6 +96,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return Array.from(new Set(savings.map(s => s.type)));
   }, [savings]);
 
+  const filteredSavings = useMemo(() => {
+    if (!summaryFilter) return [];
+    
+    return savings.filter(s => {
+      const attrs = getAssetAttributes(s.type);
+      switch (summaryFilter.category) {
+        case 'type': return s.type === summaryFilter.value;
+        case 'currency': return s.currency === (summaryFilter.value === 'AUR' ? 'XAU' : summaryFilter.value);
+        case 'liquidity': return attrs.liquidity === summaryFilter.value;
+        case 'risk': return attrs.risk === summaryFilter.value;
+        case 'horizon': return attrs.horizon === summaryFilter.value;
+        default: return false;
+      }
+    });
+  }, [savings, summaryFilter]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -116,6 +133,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
       onEdit,
       onDelete
     };
+
+    if (activeSubView === 'savings-list') {
+      return (
+        <SavingsResultsView 
+          summaryFilter={summaryFilter}
+          filteredSavings={filteredSavings}
+          onBack={() => {
+            setSummaryFilter(null);
+            setActiveSubView('main');
+          }}
+          onEdit={onEdit}
+          displayCurrency={displayCurrency}
+          rates={rates}
+        />
+      );
+    }
 
     switch (activeSubView) {
       case SavingType.CASH_RESERVE:
@@ -163,87 +196,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onCurrencyChange={setDisplayCurrency}
                 actualCurrencies={Object.keys(totals.byCurrency) as Currency[]}
                 onSliceClick={setSummaryFilter}
+                currentFilter={summaryFilter}
                 onSliceDoubleClick={(filter) => {
                   if (typeof filter === 'string') {
                     // Legacy support or just type
                     setActiveSubView(filter as SavingType);
-                  } else if (filter.type) {
-                    setActiveSubView(filter.type);
-                  } else if (filter.currency) {
-                    onSliceClick(filter);
+                  } else if (filter.category === 'type') {
+                    // Categoriile de economisire duc la submeniul lor specific
+                    setActiveSubView(filter.value as SavingType);
+                  } else {
+                    // Valuta, Risc, Lichiditate, Orizont duc la pagina ACTIVE
+                    setSummaryFilter(filter);
+                    setActiveSubView('savings-list');
                   }
                 }}
               />
             </div>
-
-            {/* Active Filtering Results */}
-            <AnimatePresence>
-              {summaryFilter && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-primary/20 p-8 shadow-xl overflow-hidden"
-                >
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                        Active: <span className="text-primary">{summaryFilter.value}</span>
-                      </h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        Filtrat după {summaryFilter.category === 'type' ? 'Categorie' : 
-                                     summaryFilter.category === 'currency' ? 'Valută' : 
-                                     summaryFilter.category === 'liquidity' ? 'Lichiditate' :
-                                     summaryFilter.category === 'risk' ? 'Risc' : 'Orizont'}
-                      </p>
-                    </div>
-                    <button 
-                      onClick={() => setSummaryFilter(null)}
-                      className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-full text-[9px] font-black uppercase hover:bg-slate-900 hover:text-white transition-all"
-                    >
-                      Resetează
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {savings
-                      .filter(s => {
-                        const attrs = getAssetAttributes(s.type);
-                        switch (summaryFilter.category) {
-                          case 'type': return s.type === summaryFilter.value;
-                          case 'currency': return s.currency === (summaryFilter.value === 'AUR' ? 'XAU' : summaryFilter.value);
-                          case 'liquidity': return attrs.liquidity === summaryFilter.value;
-                          case 'risk': return attrs.risk === summaryFilter.value;
-                          case 'horizon': return attrs.horizon === summaryFilter.value;
-                          default: return false;
-                        }
-                      })
-                      .map(s => (
-                        <div key={s.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 group hover:border-primary transition-all">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-sm text-slate-400 group-hover:text-primary transition-colors">
-                              <TrendingUp className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <p className="font-black text-slate-900 dark:text-white text-sm">{s.name}</p>
-                              <p className="text-[9px] font-black text-slate-400 uppercase">{s.type}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-black text-slate-900 dark:text-white text-sm">
-                              {s.amount.toLocaleString()} {s.currency}
-                            </p>
-                            <p className="text-[9px] font-black text-primary uppercase">
-                              ≈ {(convertToRON(s.amount, s.currency, rates) / (displayCurrency === 'RON' ? 1 : rates[displayCurrency])).toLocaleString()} {displayCurrency}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    }
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Instruments Drilldown Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

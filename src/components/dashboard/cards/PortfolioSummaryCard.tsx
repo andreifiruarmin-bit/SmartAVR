@@ -17,8 +17,9 @@ interface PortfolioSummaryCardProps {
   displayCurrency: Currency;
   onCurrencyChange: (currency: Currency) => void;
   actualCurrencies: Currency[];
-  onSliceDoubleClick?: (filter: { type?: SavingType; currency?: Currency }) => void;
+  onSliceDoubleClick?: (filter: { category: string; value: string } | string) => void;
   onSliceClick?: (filter: { category: string; value: string } | null) => void;
+  currentFilter?: { category: string; value: string } | null;
 }
 
 const COLORS = [
@@ -40,10 +41,34 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   onCurrencyChange,
   actualCurrencies,
   onSliceDoubleClick,
-  onSliceClick
+  onSliceClick,
+  currentFilter
 }) => {
-  const [activePie, setActivePie] = useState(0);
-  const [selectedSlice, setSelectedSlice] = useState<string | null>(null);
+  const [activePie, setActivePie] = React.useState(0);
+  const [selectedSlice, setSelectedSlice] = React.useState<string | null>(null);
+
+  // Sync internal selected slice with the globally active filter
+  React.useEffect(() => {
+    if (!currentFilter) {
+      setSelectedSlice(null);
+    } else {
+      // If there is a filter but it belongs to another category, clear highlight on this pie
+      // unless we are in that category and the value matches.
+      const currentActiveId = [
+        { id: 'type' },
+        { id: 'currency' },
+        { id: 'liquidity' },
+        { id: 'risk' },
+        { id: 'horizon' }
+      ][activePie].id;
+
+      if (currentFilter.category === currentActiveId) {
+        setSelectedSlice(currentFilter.value);
+      } else {
+        setSelectedSlice(null);
+      }
+    }
+  }, [currentFilter, activePie]);
 
   const displayTotal = useMemo(() => {
     if (displayCurrency === 'RON') return totals.totalInBase;
@@ -170,22 +195,14 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
               onSliceClick={(data) => {
                 const nextSlice = data ? data.name : null;
                 setSelectedSlice(nextSlice);
-                // First click only updates internal highlight state
-                if (!nextSlice) {
-                  onSliceClick?.(null);
-                }
+                // First click only updates internal highlight state.
+                // We don't call props.onSliceClick here to prevent premature filtering.
               }}
               onDoubleClick={(data) => {
-                // Second click triggers the actual filtering
-                onSliceClick?.({ category: allCharts[activePie].id, value: data.name });
-                
-                // Also trigger original double click logic (subviews)
-                if (allCharts[activePie].id === 'currency') {
-                  const curr = data.name === 'AUR' ? 'XAU' : data.name as Currency;
-                   onSliceDoubleClick?.({ currency: curr as Currency });
-                } else if (allCharts[activePie].id === 'type') {
-                   onSliceDoubleClick?.({ type: data.name as SavingType });
-                }
+                // Second click confirms selection and triggers filtering/navigation
+                const filter = { category: allCharts[activePie].id, value: data.name };
+                onSliceClick?.(filter);
+                onSliceDoubleClick?.(filter);
               }}
             />
           </motion.div>
