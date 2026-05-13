@@ -27,13 +27,16 @@ export const BankDepositsCard: React.FC<BankDepositsCardProps> = ({
 
   return (
     <motion.div 
-      whileHover={{ y: -5 }}
+      whileHover={typeof window !== 'undefined' && window.innerWidth > 768 ? { y: -5 } : undefined}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between relative group transition-all duration-300 cursor-pointer hover:border-slate-900 dark:hover:border-primary hover:shadow-xl hover:shadow-slate-900/5 dark:hover:shadow-primary/5"
+      className={cn(
+        "bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between relative group transition-all duration-300 cursor-pointer",
+        "md:hover:border-slate-900 dark:md:hover:border-primary md:hover:shadow-xl md:hover:shadow-slate-900/5 dark:md:hover:shadow-primary/5"
+      )}
     >
       <div className="flex justify-between items-start mb-4">
-        <div className="p-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl group-hover:bg-slate-800 dark:group-hover:bg-primary transition-all duration-500">
+        <div className="p-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl md:group-hover:bg-slate-800 dark:md:group-hover:bg-primary transition-all duration-500">
           <Landmark className="w-6 h-6" />
         </div>
         <div className="text-right">

@@ -15,7 +15,7 @@ export const PortfolioEvolutionCard: React.FC<PortfolioEvolutionCardProps> = ({ 
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white p-6 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500"
+      className="bg-white p-6 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group md:hover:shadow-xl md:hover:shadow-slate-200/50 transition-all duration-500"
     >
       <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
         <div>
@@ -92,7 +92,7 @@ export const PortfolioEvolutionCard: React.FC<PortfolioEvolutionCardProps> = ({ 
               strokeWidth={4} 
               fillOpacity={1} 
               fill="url(#colorTotal)"
-              animationDuration={2000}
+              animationDuration={800}
             />
             {hasDeposits && (
               <Area 
@@ -102,7 +102,7 @@ export const PortfolioEvolutionCard: React.FC<PortfolioEvolutionCardProps> = ({ 
                 strokeWidth={4} 
                 fillOpacity={1} 
                 fill="url(#colorDeposits)"
-                animationDuration={2500}
+                animationDuration={1000}
               />
             )}
           </AreaChart>

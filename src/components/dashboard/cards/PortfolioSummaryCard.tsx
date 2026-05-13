@@ -120,7 +120,7 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
               onClick={() => handleCurrencySwitch('RON')}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all shadow-sm",
-                displayCurrency === 'RON' ? "bg-slate-900 text-white dark:bg-primary" : "bg-slate-50 text-slate-400 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-500"
+                displayCurrency === 'RON' ? "bg-slate-900 text-white dark:bg-primary" : "bg-slate-50 text-slate-400 md:hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-500"
               )}
             >
               RON
@@ -131,7 +131,7 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
                 onClick={() => handleCurrencySwitch(cur)}
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all shadow-sm",
-                  displayCurrency === cur ? "bg-slate-900 text-white dark:bg-primary" : "bg-slate-50 text-slate-400 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-500"
+                  displayCurrency === cur ? "bg-slate-900 text-white dark:bg-primary" : "bg-slate-50 text-slate-400 md:hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-500"
                 )}
               >
                 {cur}
@@ -146,7 +146,7 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
         <div className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20">
           <button 
             onClick={prevPie}
-            className="p-2.5 bg-white dark:bg-slate-900 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-primary transition-all active:scale-90"
+            className="p-2.5 bg-white dark:bg-slate-900 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 text-slate-400 md:hover:text-primary transition-all active:scale-90"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -170,13 +170,16 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
               onSliceClick={(data) => {
                 const nextSlice = data ? data.name : null;
                 setSelectedSlice(nextSlice);
-                if (nextSlice) {
-                  onSliceClick?.({ category: allCharts[activePie].id, value: nextSlice });
-                } else {
+                // First click only updates internal highlight state
+                if (!nextSlice) {
                   onSliceClick?.(null);
                 }
               }}
               onDoubleClick={(data) => {
+                // Second click triggers the actual filtering
+                onSliceClick?.({ category: allCharts[activePie].id, value: data.name });
+                
+                // Also trigger original double click logic (subviews)
                 if (allCharts[activePie].id === 'currency') {
                   const curr = data.name === 'AUR' ? 'XAU' : data.name as Currency;
                    onSliceDoubleClick?.({ currency: curr as Currency });
@@ -191,7 +194,7 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
         <div className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20">
           <button 
             onClick={nextPie}
-            className="p-2.5 bg-white dark:bg-slate-900 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-primary transition-all active:scale-90"
+            className="p-2.5 bg-white dark:bg-slate-900 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 text-slate-400 md:hover:text-primary transition-all active:scale-90"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -205,7 +208,7 @@ export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
               onClick={() => handlePieChange(i)}
               className={cn(
                 "w-1.5 h-1.5 rounded-full transition-all duration-300",
-                activePie === i ? "bg-primary w-6" : "bg-slate-200 dark:bg-slate-700 hover:bg-slate-300"
+                activePie === i ? "bg-primary w-6" : "bg-slate-200 dark:bg-slate-700 md:hover:bg-slate-300"
               )} 
             />
           ))}

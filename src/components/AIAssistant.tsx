@@ -54,10 +54,10 @@ export const AIAssistant: React.FC = () => {
     <>
       {/* Toggle Button */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
+        whileHover={typeof window !== 'undefined' && window.innerWidth > 768 ? { scale: 1.05 } : undefined}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 md:bottom-8 right-6 z-50 w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-slate-900/40 hover:bg-slate-800 transition-all border border-slate-700"
+        className="fixed bottom-24 md:bottom-8 right-6 z-50 w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-slate-900/40 md:hover:bg-slate-800 transition-all border border-slate-700"
       >
         {isOpen ? <X className="w-6 h-6" /> : <Sparkles className="w-6 h-6 text-primary" />}
       </motion.button>

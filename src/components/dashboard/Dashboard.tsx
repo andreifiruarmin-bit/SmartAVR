@@ -359,10 +359,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
         ) : (
           <motion.div
             key="submenu-view"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            initial={{ opacity: 0, x: 20, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, scale: 0.98 }}
+            transition={{ 
+              type: 'spring', 
+              damping: 25, 
+              stiffness: 220,
+              mass: 0.8
+            }}
           >
             {renderSubView()}
           </motion.div>

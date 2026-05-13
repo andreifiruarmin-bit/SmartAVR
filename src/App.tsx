@@ -71,6 +71,33 @@ export default function App() {
     }
   }, [isDark]);
 
+  const [lastActivity, setLastActivity] = useState(Date.now());
+
+  useEffect(() => {
+    if (!user) return;
+
+    const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
+
+    const updateActivity = () => setLastActivity(Date.now());
+
+    // User activity events to track
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(name => document.addEventListener(name, updateActivity));
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      if (now - lastActivity > INACTIVITY_LIMIT) {
+        console.log('Inactivity timeout reached. Logging out...');
+        supabase.auth.signOut();
+      }
+    }, 60000); // Check every minute
+
+    return () => {
+      events.forEach(name => document.removeEventListener(name, updateActivity));
+      clearInterval(interval);
+    };
+  }, [user, lastActivity]);
+
   const toggleDarkMode = () => setIsDark(!isDark);
 
   const handleEdit = (saving: Saving) => {
@@ -388,10 +415,10 @@ export default function App() {
             </div>
             
             <motion.button
-              whileHover={{ scale: 1.05 }}
+              whileHover={typeof window !== 'undefined' && window.innerWidth > 768 ? { scale: 1.05 } : undefined}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 bg-primary text-white px-4 md:px-6 py-2.5 rounded-xl md:rounded-full text-sm font-bold hover:opacity-90 transition-colors shadow-lg shadow-primary/20"
+              className="flex items-center gap-2 bg-primary text-white px-4 md:px-6 py-2.5 rounded-xl md:rounded-full text-sm font-bold md:hover:opacity-90 transition-colors shadow-lg shadow-primary/20"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Adaugă</span>

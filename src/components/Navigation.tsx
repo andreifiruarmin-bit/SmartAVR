@@ -70,28 +70,37 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             )}
             aria-current={activeTab === 'dashboard' ? 'page' : undefined}
           >
-            <div className={cn(
-              "p-2 rounded-2xl transition-all relative",
-              activeTab === 'dashboard' ? "bg-primary/10" : "group-hover:bg-slate-50 dark:group-hover:bg-slate-800"
-            )}>
+            <motion.div 
+              whileTap={{ scale: 0.9, y: 2 }}
+              className={cn(
+                "p-2 rounded-2xl transition-all relative",
+                activeTab === 'dashboard' ? "bg-primary/10" : "group-active:bg-slate-50 dark:group-active:bg-slate-800 md:group-hover:bg-slate-50 dark:group-hover:bg-slate-800"
+              )}
+            >
               <PieChartIcon className="w-6 h-6" />
               {activeTab === 'dashboard' && (
                 <motion.div
                   layoutId="mobile-active-dot"
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary rounded-full shadow-lg shadow-primary/40"
+                  transition={{ type: "spring", bounce: 0.5, duration: 0.5 }}
                 />
               )}
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-tighter">Dashboard</span>
+            </motion.div>
+            <span className={cn(
+              "text-[10px] font-black uppercase tracking-tighter transition-all",
+              activeTab === 'dashboard' ? "opacity-100" : "opacity-60"
+            )}>Dashboard</span>
           </button>
 
           {/* Special Floating Action Button in Tab Bar for Mobile */}
           <div className="relative -mt-12 px-4">
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={typeof window !== 'undefined' && window.innerWidth > 768 ? { scale: 1.05, y: -2 } : undefined}
+              whileTap={{ scale: 0.9, y: 2 }}
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
               onClick={onAddClick}
-              className="w-16 h-16 bg-slate-900 dark:bg-primary text-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-slate-900/30 dark:shadow-primary/30 border-4 border-white dark:border-slate-900"
+              className="w-16 h-16 bg-slate-900 dark:bg-primary text-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-slate-900/30 dark:shadow-primary/30 border-4 border-white dark:border-slate-800"
               aria-label="Add new saving"
             >
               <Plus className="w-8 h-8" />
@@ -106,19 +115,26 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             )}
             aria-current={activeTab === 'list' ? 'page' : undefined}
           >
-            <div className={cn(
-              "p-2 rounded-2xl transition-all relative",
-              activeTab === 'list' ? "bg-primary/10" : "group-hover:bg-slate-50 dark:group-hover:bg-slate-800"
-            )}>
+            <motion.div 
+              whileTap={{ scale: 0.9, y: 2 }}
+              className={cn(
+                "p-2 rounded-2xl transition-all relative",
+                activeTab === 'list' ? "bg-primary/10" : "group-active:bg-slate-50 dark:group-active:bg-slate-800 md:group-hover:bg-slate-50 dark:group-hover:bg-slate-800"
+              )}
+            >
               <List className="w-6 h-6" />
               {activeTab === 'list' && (
                 <motion.div
                   layoutId="mobile-active-dot"
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary rounded-full shadow-lg shadow-primary/40"
+                  transition={{ type: "spring", bounce: 0.5, duration: 0.5 }}
                 />
               )}
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-tighter">Active</span>
+            </motion.div>
+            <span className={cn(
+              "text-[10px] font-black uppercase tracking-tighter transition-all",
+              activeTab === 'list' ? "opacity-100" : "opacity-60"
+            )}>Active</span>
           </button>
         </div>
       </nav>

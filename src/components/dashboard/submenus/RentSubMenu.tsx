@@ -113,9 +113,9 @@ export const RentSubMenu: React.FC<RentSubMenuProps> = ({
 
       <div ref={listRef} className="space-y-4 pt-4">
         {filteredRent.map(s => (
-          <div key={s.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 flex justify-between items-center group/item hover:border-emerald-500 transition-all relative overflow-hidden">
+          <div key={s.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 flex justify-between items-center group/item md:hover:border-emerald-500 transition-all relative overflow-hidden">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-xl group-hover/item:bg-emerald-500 group-hover/item:text-white transition-all">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-xl md:group-hover/item:bg-emerald-500 md:group-hover/item:text-white transition-all">
                 <Home className="w-5 h-5" />
               </div>
               <div>
@@ -141,13 +141,13 @@ export const RentSubMenu: React.FC<RentSubMenuProps> = ({
               <div className="flex items-center gap-2 transition-all">
                 <button 
                   onClick={() => onEdit(s)}
-                  className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-900 dark:hover:bg-primary hover:text-white transition-all shadow-sm"
+                  className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg md:hover:bg-slate-900 dark:md:hover:bg-primary md:hover:text-white transition-all shadow-sm active:bg-slate-900 dark:active:bg-primary active:text-white"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button 
                   onClick={() => handleDelete(s.id, s.name)}
-                  className="p-2 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                  className="p-2 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-lg md:hover:bg-red-500 md:hover:text-white transition-all shadow-sm active:bg-red-500 active:text-white"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

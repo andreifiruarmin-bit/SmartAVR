@@ -4,6 +4,7 @@ import { formatCurrency } from '../lib/utils';
 import { CURRENCY_SYMBOLS } from '../constants';
 import { Trash2, Landmark, Coins, TrendingUp, Wallet, ArrowRight, Layers, FileText, Home, ArrowUpDown, Calendar, ChevronDown, ChevronUp, Filter, ArrowUpRight, Search, X, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Virtuoso } from 'react-virtuoso';
 
 interface SavingsListProps {
   savings: Saving[];
@@ -113,6 +114,118 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
       setSortField(field);
       setSortDirection('desc');
     }
+  };
+
+  // Virtualized Row Components
+  const DesktopRow = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    const s = filteredAndSortedSavings[index];
+    const Icon = TYPE_ICONS[s.type] || Wallet;
+    return (
+      <div style={style} className="border-b border-slate-50 dark:border-slate-800/50">
+        <motion.div
+          variants={rowVariants}
+          initial="hidden"
+          animate="visible"
+          className="flex items-center group md:hover:bg-slate-50/50 dark:md:hover:bg-slate-800/50 transition-colors h-full px-4"
+        >
+          <div className="flex-[2] flex items-center gap-5 min-w-0 pr-4">
+            <div className="w-12 h-12 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 md:group-hover:bg-primary md:group-hover:text-white transition-all">
+              <Icon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-slate-900 dark:text-white md:group-hover:text-primary transition-colors truncate">{s.name}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest">{s.type}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex-[1.5] flex items-center gap-2 px-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 md:group-hover:bg-primary transition-colors" />
+            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400 truncate">
+              {s.bank || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
+            </p>
+          </div>
+          
+          <div className="flex-[1.5] flex flex-col px-4">
+            <span className="font-black text-sm text-slate-900 dark:text-white tracking-tight">
+              {formatCurrency(s.amount, s.currency)}
+            </span>
+            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Valoare</span>
+          </div>
+
+          <div className="flex-[1.2] px-4">
+            {(s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) && (s as any).interestRate ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 rounded-lg text-[9px] font-black border border-emerald-100 dark:border-emerald-500/20">
+                +{(s as any).interestRate}%
+              </div>
+            ) : (
+              <span className="text-[9px] font-black text-slate-400 uppercase italic">Variabil</span>
+            )}
+          </div>
+
+          <div className="flex-1 flex items-center justify-end gap-2 pl-4">
+            <button onClick={() => onEdit(s)} className="p-2 text-slate-300 md:hover:text-primary transition-colors active:text-primary">
+              <Pencil className="w-4 h-4" />
+            </button>
+            <AnimatePresence mode="wait">
+              {confirmDeleteId === s.id ? (
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex gap-1">
+                  <button onClick={() => setConfirmDeleteId(null)} className="p-1 text-[8px] font-black bg-slate-100 rounded text-slate-500">X</button>
+                  <button onClick={() => { onDelete(s.id); setConfirmDeleteId(null); }} className="p-1 px-2 text-[8px] font-black bg-red-600 text-white rounded">OK</button>
+                </motion.div>
+              ) : (
+                <button onClick={() => setConfirmDeleteId(s.id)} className="p-2 text-slate-300 md:hover:text-red-500 transition-colors active:text-red-500">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
+  const MobileRow = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    const s = filteredAndSortedSavings[index];
+    const Icon = TYPE_ICONS[s.type] || Wallet;
+    return (
+      <div style={{ ...style, padding: '8px 0' }}>
+        <motion.div
+          variants={rowVariants}
+          initial="hidden"
+          animate="visible"
+          className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 rounded-3xl p-5 flex flex-col gap-3"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-primary">
+                <Icon className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[150px]">{s.name}</p>
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{s.type}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <button onClick={() => onEdit(s)} className="p-2 text-slate-400"><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => setConfirmDeleteId(s.id)} className="p-2 text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </div>
+          <div className="flex justify-between items-end border-t border-slate-200/50 pt-3 mt-1">
+            <div>
+              <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Valoare</p>
+              <p className="font-black text-sm text-slate-900 dark:text-white">{formatCurrency(s.amount, s.currency)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Instituție</p>
+              <p className="text-[9px] font-black uppercase text-slate-500 truncate max-w-[100px]">{s.bank || 'PROPRIE'}</p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
   };
 
   if (savings.length === 0 && !filter && !searchTerm && dateRange === 'all') {
@@ -299,16 +412,16 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
         </div>
       </motion.div>
 
-      {savings.length === 0 ? (
+      {filteredAndSortedSavings.length === 0 ? (
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-[3rem] p-16 text-center border border-slate-200 shadow-sm"
+          className="bg-white dark:bg-slate-900 rounded-[3rem] p-16 text-center border border-slate-200 dark:border-slate-800 shadow-sm"
         >
-          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Filter className="w-8 h-8 text-slate-200" />
+          <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Filter className="w-8 h-8 text-slate-200 dark:text-slate-700" />
           </div>
-          <p className="text-slate-900 font-black uppercase tracking-widest text-sm mb-4">Niciun rezultat pentru acest filtru</p>
+          <p className="text-slate-900 dark:text-white font-black uppercase tracking-widest text-sm mb-4">Niciun rezultat pentru acest filtru</p>
           <button 
             onClick={handleReset}
             className="text-primary font-black uppercase tracking-widest text-xs hover:bg-primary/5 px-6 py-3 rounded-2xl transition-all"
@@ -323,224 +436,39 @@ export const SavingsList: React.FC<SavingsListProps> = ({ savings, onDelete, onE
           animate="visible"
           className="bg-white dark:bg-slate-900 rounded-[2.5rem] lg:rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-3 sm:p-6 lg:p-10 hover:shadow-xl hover:shadow-primary/5 transition-all duration-500"
         >
-          {/* Mobile View - Card Layout */}
-          <div className="lg:hidden space-y-4">
-            {filteredAndSortedSavings.map((s) => {
-              const Icon = TYPE_ICONS[s.type] || Wallet;
-              return (
-                <motion.div
-                  key={s.id}
-                  variants={rowVariants}
-                  className="bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 rounded-3xl p-5 group flex flex-col gap-4 relative overflow-hidden"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-primary shadow-sm shadow-primary/5">
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <p className="text-base font-black text-slate-900 dark:text-white">{s.name}</p>
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{s.type}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => onEdit(s)}
-                        className="w-12 h-12 flex items-center justify-center text-slate-400 hover:text-primary bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all shadow-sm active:scale-95"
-                      >
-                        <Pencil className="w-5 h-5" />
-                      </button>
-                    
-                      <AnimatePresence mode="wait">
-                        {confirmDeleteId === s.id ? (
-                          <motion.div 
-                            key="confirm-mobile"
-                            initial={{ opacity: 0, scale: 0.9, x: 10 }}
-                            animate={{ opacity: 1, scale: 1, x: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                            className="flex items-center gap-2"
-                          >
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              className="h-12 w-12 flex items-center justify-center text-[10px] font-black uppercase text-slate-400 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm"
-                            >
-                              X
-                            </button>
-                            <button
-                              onClick={() => {
-                                onDelete(s.id);
-                                setConfirmDeleteId(null);
-                              }}
-                              className="h-12 px-6 flex items-center justify-center text-[10px] font-black uppercase bg-red-600 text-white rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all"
-                            >
-                              Elimină
-                            </button>
-                          </motion.div>
-                        ) : (
-                          <motion.button
-                            key="delete-btn-mobile"
-                            onClick={() => setConfirmDeleteId(s.id)}
-                            className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-red-500 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all shadow-sm active:scale-95"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </motion.button>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-200/50 dark:border-slate-800">
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Valoare</p>
-                      <p className="font-black text-base text-slate-900 dark:text-white">{formatCurrency(s.amount, s.currency)}</p>
-                    </div>
-                      {/* Value & Yield */}
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Randament</p>
-                        {(s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) && (s as any).interestRate ? (
-                          <p className="text-emerald-600 font-black text-sm">+{ (s as any).interestRate}% P.A.</p>
-                        ) : (
-                          <p className="text-slate-500 font-bold text-sm italic uppercase">Variabil</p>
-                        )}
-                      </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-                      {s.bank || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
-                    </p>
-                  </div>
-                </motion.div>
-              );
-            })}
+          {/* Mobile View - Virtualized List */}
+          <div className="lg:hidden h-[600px] w-full">
+            <Virtuoso
+              style={{ height: '600px' }}
+              totalCount={filteredAndSortedSavings.length}
+              itemContent={(index) => (
+                <div className="pb-4">
+                  <MobileRow index={index} style={{}} />
+                </div>
+              )}
+              className="scrollbar-hide"
+            />
           </div>
 
-          {/* Desktop View - Table Layout */}
-          <div className="hidden lg:block overflow-x-auto scrollbar-hide">
-            <table className="w-full text-left min-w-[700px]">
-              <thead className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-slate-800">
-                <tr>
-                  <th className="pb-6 pr-4">Active / Instrument</th>
-                  <th className="pb-6 px-4">Instituție / Locație</th>
-                  <th className="pb-6 px-4">Sumă Deținută</th>
-                  <th className="pb-6 px-4">Randament</th>
-                  <th className="pb-6 pl-4 text-right">Acțiuni</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                {filteredAndSortedSavings.map((s) => {
-                  const Icon = TYPE_ICONS[s.type] || Wallet;
-                  return (
-                    <motion.tr
-                      key={s.id}
-                      variants={rowVariants}
-                      className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
-                    >
-                      <td className="py-6 pr-4">
-                        <div className="flex items-center gap-5">
-                          <div className="w-14 h-14 rounded-[1.25rem] bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white group-hover:shadow-xl group-hover:shadow-primary/30 group-hover:-rotate-3 transition-all duration-500">
-                            <Icon className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <p className="text-base font-black text-slate-900 dark:text-white group-hover:text-primary transition-colors">{s.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Icon className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
-                              <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-widest">{s.type}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-6 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 group-hover:bg-primary transition-colors" />
-                          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                            {s.bank || (s.type === SavingType.GOLD ? 'SEIF PERSONAL' : 'CUSTODIE PROPRIE')}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-6 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-black text-base text-slate-900 dark:text-white tracking-tight">
-                            {formatCurrency(s.amount, s.currency)}
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5 tracking-tighter">Valoare Contabilizată</span>
-                        </div>
-                      </td>
-                      <td className="py-6 px-4">
-                        {(s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) && (s as any).interestRate ? (
-                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 rounded-xl text-[10px] font-black border border-emerald-100 dark:border-emerald-500/20 shadow-sm group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
-                            <TrendingUp className="w-3 h-3" />
-                            +{(s as any).interestRate}% <span className="italic opacity-60">P.A.</span>
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl text-[10px] font-black border border-slate-200 dark:border-slate-700">
-                            <ArrowUpRight className="w-3 h-3" />
-                            <span className="italic uppercase">Variabil</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-6 pl-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => onEdit(s)}
-                            className="p-3 text-slate-300 hover:text-primary hover:bg-primary/5 rounded-2xl transition-all duration-300"
-                            aria-label="Editează activ"
-                          >
-                            <Pencil className="w-5 h-5" />
-                          </motion.button>
-
-                          <AnimatePresence mode="wait">
-                            {confirmDeleteId === s.id ? (
-                              <motion.div 
-                                key="confirm"
-                                initial={{ opacity: 0, scale: 0.9, x: 10 }}
-                                animate={{ opacity: 1, scale: 1, x: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                                className="flex items-center justify-end gap-2"
-                              >
-                                <button
-                                  onClick={() => setConfirmDeleteId(null)}
-                                  className="text-[10px] font-black uppercase text-slate-400 hover:text-slate-900 dark:hover:text-white px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl transition-all"
-                                >
-                                  Anulează
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    onDelete(s.id);
-                                    setConfirmDeleteId(null);
-                                  }}
-                                  className="text-[10px] font-black uppercase bg-red-600 text-white px-4 py-2 rounded-xl shadow-lg shadow-red-600/30 hover:bg-red-700 transition-all active:scale-95"
-                                >
-                                  Confirmă
-                                </button>
-                              </motion.div>
-                            ) : (
-                              <motion.button
-                                key="delete-btn"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                whileHover={{ scale: 1.1, rotate: 8 }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => setConfirmDeleteId(s.id)}
-                                className="p-3 text-slate-300 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl transition-all duration-300"
-                                aria-label="Șterge active"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </motion.button>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          {/* Desktop View - Virtualized Table */}
+          <div className="hidden lg:block">
+            <div className="flex items-center text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-slate-800 pb-6 px-4">
+              <div className="flex-[2]">Active / Instrument</div>
+              <div className="flex-[1.5] px-4">Instituție / Locație</div>
+              <div className="flex-[1.5] px-4">Sumă Deținută</div>
+              <div className="flex-[1.2] px-4">Randament</div>
+              <div className="flex-1 text-right">Acțiuni</div>
+            </div>
+            <div className="h-[600px] w-full">
+              <Virtuoso
+                style={{ height: '600px' }}
+                totalCount={filteredAndSortedSavings.length}
+                itemContent={(index) => (
+                  <DesktopRow index={index} style={{ height: '88px' }} />
+                )}
+                className="scrollbar-hide"
+              />
+            </div>
           </div>
         </motion.div>
       )}

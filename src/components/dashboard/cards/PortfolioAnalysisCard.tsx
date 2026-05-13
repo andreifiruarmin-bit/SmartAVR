@@ -209,7 +209,7 @@ export const PortfolioAnalysisCard: React.FC<PortfolioAnalysisCardProps> = ({
                 strokeWidth={3}
                 dot={false}
                 activeDot={{ r: 6, strokeWidth: 0 }}
-                animationDuration={1500}
+                animationDuration={800}
               />
             ))}
           </LineChart>
