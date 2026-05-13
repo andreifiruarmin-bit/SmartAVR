@@ -17,6 +17,7 @@ import { DashboardSettingsModal } from './components/dashboard/DashboardSettings
 import { LegalModal } from './components/LegalModal';
 import { Auth } from './components/Auth';
 import { Navigation } from './components/Navigation';
+import { useUserProfile } from './hooks/useUserProfile';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings } from 'lucide-react';
 
@@ -32,26 +33,9 @@ export default function App() {
   const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'terms' | 'privacy' | 'gdpr' }>({ isOpen: false, type: 'terms' });
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [listFilter, setListFilter] = useState<{ type?: SavingType; currency?: Currency } | null>(null);
-  const [cardVisibility, setCardVisibility] = useState<Record<string, boolean>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('dashboard_visibility');
-      return saved ? JSON.parse(saved) : {
-        summary: true,
-        evolution: true,
-        cash: true,
-        deposits: true,
-        equities: true,
-        gold: true,
-        rent: true,
-        analysis: true
-      };
-    }
-    return { summary: true, evolution: true, cash: true, deposits: true, equities: true, gold: true, rent: true, analysis: true };
-  });
-
-  useEffect(() => {
-    localStorage.setItem('dashboard_visibility', JSON.stringify(cardVisibility));
-  }, [cardVisibility]);
+  const { preferences, updateCardVisibility, updateDisplayCurrency } = useUserProfile(user?.id);
+  const cardVisibility = preferences.cardVisibility;
+  const setCardVisibility = updateCardVisibility;
 
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -229,7 +213,8 @@ export default function App() {
       const { error } = await supabase
         .from('savings_products')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
       
       if (error) throw error;
     } catch (error) {

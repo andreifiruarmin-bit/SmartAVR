@@ -49,3 +49,18 @@ export type Saving = BankDeposit | CashReserve | GoldSaving | StockSaving | Base
 export interface ExchangeRates {
   [key: string]: number; // Price of 1 unit in base currency (RON)
 }
+
+export interface UserProfile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  plan: 'free' | 'pro' | 'business';
+  default_currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserPreferences {
+  cardVisibility: Record<string, boolean>;
+  displayCurrency: Currency;
+}

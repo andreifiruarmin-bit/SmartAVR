@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, Mail, Lock, ShieldCheck, ArrowRight, Chrome, Sun, Moon, Fingerprint } from 'lucide-react';
+import { LogIn, Mail, Lock, ShieldCheck, ArrowRight, Chrome, Sun, Moon, Fingerprint, Eye, EyeOff, Phone } from 'lucide-react';
 
 interface AuthProps {
   isDark: boolean;
@@ -12,8 +12,14 @@ export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ repeatPassword?: string; phone?: string }>({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
 
   const [rememberMe, setRememberMe] = useState(() => {
     return localStorage.getItem('smartavr_remember_me') !== 'false';
@@ -66,6 +72,8 @@ export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setFieldErrors({});
+    
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -89,7 +97,36 @@ export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
           localStorage.removeItem('smartavr_saved_email');
         }
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        // Validation for signup
+        const newFieldErrors: { repeatPassword?: string; phone?: string } = {};
+        
+        if (password !== repeatPassword) {
+          newFieldErrors.repeatPassword = 'Parolele nu coincid';
+        }
+        
+        const phoneDigits = phone.replace(/\D/g, '');
+        if (phoneDigits.length !== 9) {
+          newFieldErrors.phone = 'Numărul de telefon trebuie să aibă exact 9 cifre';
+        }
+        
+        if (!termsAccepted) {
+          throw new Error('Trebuie să fii de acord cu Termenii și condițiile și Politica de confidențialitate');
+        }
+        
+        if (Object.keys(newFieldErrors).length > 0) {
+          setFieldErrors(newFieldErrors);
+          throw new Error('Verifică câmpurile marcate cu roșu');
+        }
+
+        const { data, error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            data: {
+              phone: `+40${phoneDigits}`
+            }
+          }
+        });
         if (error) {
           if (error.message.includes('rate limit')) {
             throw new Error('Limită de viteză atinsă. Așteaptă un minut.');
@@ -186,15 +223,105 @@ export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-3.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-12 py-3.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 hover:text-primary transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
+
+          {!isLogin && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Repetă parola</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
+                  <input
+                    type={showRepeatPassword ? 'text' : 'password'}
+                    value={repeatPassword}
+                    onChange={(e) => setRepeatPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-12 py-3.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRepeatPassword(!showRepeatPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 hover:text-primary transition-colors"
+                  >
+                    {showRepeatPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {fieldErrors.repeatPassword && (
+                  <p className="text-[10px] font-bold text-red-500 ml-1 mt-1">{fieldErrors.repeatPassword}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Număr de telefon</label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
+                  <div className="flex items-center bg-slate-50 dark:bg-slate-800 rounded-2xl overflow-hidden">
+                    <span className="pl-12 pr-2 py-3.5 text-sm font-bold text-slate-400 dark:text-slate-500">+40</span>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        if (value.length <= 9) {
+                          setPhone(value);
+                        }
+                      }}
+                      placeholder="7XX XXX XXX"
+                      className="flex-1 bg-transparent border-none py-3.5 pr-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                      required
+                    />
+                  </div>
+                  {fieldErrors.phone && (
+                    <p className="text-[10px] font-bold text-red-500 ml-1 mt-1">{fieldErrors.phone}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="flex items-start gap-2 cursor-pointer group px-1">
+                  <div className="relative flex items-center mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-all checked:bg-primary checked:border-primary focus:outline-none"
+                    />
+                    <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 leading-relaxed">
+                    Sunt de acord cu{' '}
+                    <a href="/termeni-si-conditii" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                      Termenii și condițiile
+                    </a>
+                    {' '}și{' '}
+                    <a href="/politica-de-confidentialitate" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                      Politica de confidențialitate
+                    </a>
+                  </span>
+                </label>
+              </div>
+            </>
+          )}
 
           <div className="flex items-center justify-between px-1 py-1">
             <label className="flex items-center gap-2 cursor-pointer group">
@@ -226,8 +353,8 @@ export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/90 transition-all shadow-xl shadow-primary/30 flex items-center justify-center gap-2 mt-2"
+            disabled={loading || (!isLogin && !termsAccepted)}
+            className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/90 transition-all shadow-xl shadow-primary/30 flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Procesăm...' : isLogin ? 'Autentificare' : 'Înregistrare'}
             <ArrowRight className="w-4 h-4" />

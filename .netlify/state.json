@@ -1,0 +1,21 @@
+{
+	"dbConnectionString": "postgres://localhost:53474/postgres",
+	"geolocation": {
+		"data": {
+			"city": "Slatina",
+			"country": {
+				"code": "RO",
+				"name": "Romania"
+			},
+			"subdivision": {
+				"code": "OT",
+				"name": "Olt"
+			},
+			"timezone": "Europe/Bucharest",
+			"latitude": 44.4311,
+			"longitude": 24.3632,
+			"postalCode": "230072"
+		},
+		"timestamp": 1778584594139
+	}
+}
