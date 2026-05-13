@@ -1,21 +1,30 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { ChevronLeft, AlertTriangle, Calendar, TrendingUp, Building2 } from 'lucide-react';
-import { Saving, SavingType } from '../types';
-import { formatCurrency, convertToRON, differenceInDays, addMonths } from '../lib/utils';
+import { ChevronLeft, AlertTriangle, Calendar, TrendingUp, Building2, Edit, Trash2 } from 'lucide-react';
+import { Saving, SavingType, Currency } from '../types';
+import { formatCurrency, convertToRON } from '../lib/utils';
+import { differenceInDays, addMonths } from 'date-fns';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChartWithLegend } from '../components/dashboard/cards/PieChartWithLegend';
 
 interface BankDepositsDetailProps {
   savings: Saving[];
   rates: Record<string, number>;
+  displayCurrency: Currency;
   onBack: () => void;
+  onEdit: (saving: Saving) => void;
+  onDelete: (id: string) => void;
 }
 
-export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({ 
-  savings, 
-  rates, 
-  onBack 
+export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
+  savings,
+  rates,
+  displayCurrency,
+  onBack,
+  onEdit,
+  onDelete
 }) => {
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const deposits = useMemo(() => 
     savings.filter(s => s.type === SavingType.DEPOSIT), 
     [savings]
@@ -40,6 +49,35 @@ export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
       averageYield,
       projectedAnnual
     };
+  }, [deposits, rates]);
+
+  // Currency breakdown
+  const currencyData = useMemo(() => {
+    const currencyMap: Record<string, number> = {};
+    deposits.forEach(deposit => {
+      const ronValue = deposit.amount * (rates[deposit.currency] || 1);
+      currencyMap[deposit.currency] = (currencyMap[deposit.currency] || 0) + ronValue;
+    });
+    
+    return Object.entries(currencyMap)
+      .map(([name, value]) => ({ name, value }))
+      .filter(item => item.value > 0);
+  }, [deposits, rates]);
+
+  // Bank breakdown (case-insensitive)
+  const bankData = useMemo(() => {
+    const bankMap: Record<string, number> = {};
+    deposits.forEach(deposit => {
+      const bankName = ((deposit as any).bank || 'Altă bancă').toLowerCase().trim();
+      const ronValue = deposit.amount * (rates[deposit.currency] || 1);
+      // Capitalize first letter for display
+      const displayName = bankName.charAt(0).toUpperCase() + bankName.slice(1);
+      bankMap[displayName] = (bankMap[displayName] || 0) + ronValue;
+    });
+    
+    return Object.entries(bankMap)
+      .map(([name, value]) => ({ name, value }))
+      .filter(item => item.value > 0);
   }, [deposits, rates]);
 
   const maturingSoon = useMemo(() => {
@@ -112,6 +150,46 @@ export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
+        {/* Currency Breakdown PIE Chart */}
+        {currencyData.length > 0 && (
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+            <h2 className="text-lg font-black text-slate-900 uppercase tracking-wider mb-6">
+              Impartire pe Monede
+            </h2>
+            <PieChartWithLegend
+              data={currencyData.map(item => ({
+                ...item,
+                value: displayCurrency === 'EUR' ? item.value / (rates.EUR || 1) : item.value
+              }))}
+              displayCurrency={displayCurrency}
+              totalValue={displayCurrency === 'EUR' ? summary.totalRON / (rates.EUR || 1) : summary.totalRON}
+              height={300}
+              centerLabel={currencyData.length.toString()}
+              centerDescription="monede"
+            />
+          </div>
+        )}
+
+        {/* Bank Breakdown PIE Chart */}
+        {bankData.length > 0 && (
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+            <h2 className="text-lg font-black text-slate-900 uppercase tracking-wider mb-6">
+              Impartire pe Bănci
+            </h2>
+            <PieChartWithLegend
+              data={bankData.map(item => ({
+                ...item,
+                value: displayCurrency === 'EUR' ? item.value / (rates.EUR || 1) : item.value
+              }))}
+              displayCurrency={displayCurrency}
+              totalValue={displayCurrency === 'EUR' ? summary.totalRON / (rates.EUR || 1) : summary.totalRON}
+              height={300}
+              centerLabel={bankData.length.toString()}
+              centerDescription="bănci"
+            />
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
@@ -120,7 +198,7 @@ export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
               <Building2 className="w-4 h-4 text-slate-400" />
             </div>
             <p className="text-2xl font-black text-slate-900">
-              {formatCurrency(summary.totalRON, 'RON')}
+              {formatCurrency(summary.totalRON, displayCurrency)}
             </p>
           </div>
           
@@ -140,7 +218,7 @@ export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
               <Calendar className="w-4 h-4 text-slate-400" />
             </div>
             <p className="text-2xl font-black text-green-600">
-              {formatCurrency(summary.projectedAnnual, 'RON')}
+              {formatCurrency(summary.projectedAnnual, displayCurrency)}
             </p>
           </div>
         </div>
@@ -219,8 +297,8 @@ export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
                         )}
                         <div className="flex items-center gap-1">
                           <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
-                            (deposit as any).capitalized 
-                              ? 'bg-green-100 text-green-700' 
+                            (deposit as any).capitalized
+                              ? 'bg-green-100 text-green-700'
                               : 'bg-slate-100 text-slate-700'
                           }`}>
                             {(deposit as any).capitalized ? 'Capitalizat' : 'Necapitalizat'}
@@ -233,8 +311,24 @@ export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
                         {formatCurrency(deposit.amount, deposit.currency)}
                       </p>
                       <p className="text-sm text-slate-500 font-medium">
-                        ≈ {formatCurrency(ronValue, 'RON')}
+                        ≈ {formatCurrency(ronValue, displayCurrency)}
                       </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => onEdit(deposit)}
+                          className="p-2 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 transition-colors"
+                          title="Editează"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm({ id: deposit.id, name: deposit.name })}
+                          className="p-2 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors"
+                          title="Șterge"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -256,14 +350,10 @@ export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
                   dataKey="month" 
                   tick={{ fontSize: 12, fill: '#64748b' }}
                   axisLine={{ stroke: '#e2e8f0' }}
-                />
-                <YAxis 
-                  tick={{ fontSize: 12, fill: '#64748b' }}
-                  axisLine={{ stroke: '#e2e8f0' }}
                   tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                 />
                 <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value, 'RON'), 'Valoare']}
+                  formatter={(value: number) => [formatCurrency(value, displayCurrency), 'Valoare']}
                   contentStyle={{ 
                     backgroundColor: 'white', 
                     border: '1px solid #e2e8f0',
@@ -283,6 +373,37 @@ export const BankDepositsDetail: React.FC<BankDepositsDetailProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-4">
+              Confirmare Ștergere
+            </h3>
+            <p className="text-slate-700 font-medium mb-6">
+              Sunteți sigur că ștergeți "{deleteConfirm.name}"? Această acțiune este ireversibilă.
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-2xl hover:bg-slate-200 transition-colors"
+              >
+                Anulează
+              </button>
+              <button
+                onClick={() => {
+                  onDelete(deleteConfirm.id);
+                  setDeleteConfirm(null);
+                }}
+                className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-colors"
+              >
+                Șterge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

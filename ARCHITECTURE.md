@@ -321,6 +321,53 @@ SmartAVR este o platformă avansată de gestionare a activelor și optimizare a 
 - Tailwind configuration supports dark mode variants
 - CSS custom properties ready for theme implementation
 
+### Instrument Card Currency Selection (Stubbed)
+
+**Current Status (MVP Stubbed):**
+- Individual currency dropdown functionality has been temporarily removed from instrument cards
+- Cards now display values in the currency set from the main PortfolioSummaryCard (displayCurrencyMode)
+- All instrument cards (BankDepositsCard, CashReserveCard, GoldAssetsCard, EquitiesCard) use a unified display currency
+- Currency conversion is handled centrally in `useDashboardData.ts` via the `getCardValue` function
+
+**What was implemented before stubbing:**
+- Individual currency dropdowns on each instrument card with options: AUTO, RON, EUR, and user's active currencies
+- AUTO mode synced with main card's displayCurrencyMode (RON/EUR toggle)
+- Individual card currency settings persisted in localStorage via cardSettings
+- Click propagation handling to prevent navigation when selecting currencies
+- Real-time currency conversion using exchange rates
+
+**Why it was stubbed:**
+- Click propagation issues: Clicking currency options in dropdowns triggered navigation to detail pages instead of changing currency
+- Event bubbling complexity: Multiple attempts to fix with `e.stopPropagation()`, `data-dropdown-option` attributes, and DOM selectors were unsuccessful
+- User experience impact: The dropdown functionality was causing navigation issues that made the cards unusable
+- Simplification: Removing per-card currency selection simplifies the UX and reduces complexity
+
+**Roadmap for Currency Selection Re-implementation:**
+1. **Phase 1 (Post-MVP):**
+   - Re-implement currency dropdowns with proper event handling
+   - Use React Portal for dropdowns to avoid z-index and event bubbling issues
+   - Implement click-outside detection using refs instead of document-level event listeners
+   - Test click propagation thoroughly across all card types
+
+2. **Phase 2 (Enhancement):**
+   - Add currency preference per instrument type (e.g., gold always in EUR, deposits in RON)
+   - Implement currency conversion history tracking
+   - Add currency comparison mode (side-by-side view in multiple currencies)
+   - Optimize currency conversion performance with memoization
+
+3. **Phase 3 (Advanced):**
+   - Automatic currency detection based on instrument type
+   - Currency alerts for significant exchange rate changes
+   - Multi-currency portfolio analysis
+   - Currency hedging recommendations
+
+**Technical Notes:**
+- All currency-related code is preserved in comments/history for easy re-implementation
+- `cardSettings.currency` fields remain in localStorage schema for future use
+- `getCardValue` function in `useDashboardData.ts` handles all currency conversion logic
+- `displayCurrencyMode` state in Dashboard.tsx controls global display currency
+- Conversion formula: `convertedValue = displayCurrency === 'EUR' ? baseValue / (rates?.['EUR'] || 1) : baseValue`
+
 ### Other Roadmap Items
 1. [ ] Sistem de notificări pentru scadențe depozite (Service Workers).
 2. [ ] Integrare cu API-uri bancare prin Open Banking (Specter/SaltEdge) - Pro Feature.

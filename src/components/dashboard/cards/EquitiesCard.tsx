@@ -2,42 +2,29 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Currency, Saving, SavingType } from '../../../types';
 import { formatCurrency } from '../../../lib/utils';
-import { Activity, EyeOff, Eye, ChevronDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { Activity, EyeOff, Eye, TrendingUp, TrendingDown } from 'lucide-react';
 import { itemVariants } from '../types';
 
 interface EquitiesCardProps {
   value: number;
-  currency: Currency | 'BASE';
-  activeCurrencies: Currency[];
-  displayCurrencyMode: 'RON' | 'EUR';
+  displayCurrency: Currency;
   savings: Saving[];
-  rates: Record<string, number>;
   isVisible: boolean;
   onToggleVisibility: () => void;
-  onCurrencyChange: (c: Currency | 'BASE') => void;
-  totals: {
-    byType: Record<string, number>;
-  };
 }
 
 export const EquitiesCard: React.FC<EquitiesCardProps> = ({
   value,
-  currency,
-  activeCurrencies,
-  displayCurrencyMode,
+  displayCurrency,
   savings,
-  rates,
   isVisible,
-  onToggleVisibility,
-  onCurrencyChange,
-  totals
+  onToggleVisibility
 }) => {
-  const displayCurrency = currency === 'BASE' ? displayCurrencyMode : currency;
-  const stocksValue = (totals.byType[SavingType.STOCKS] || 0) + (totals.byType[SavingType.ETF] || 0);
 
   // Get unique symbols from stocks and ETFs
-  const equitiesSavings = savings.filter(s => s.type === SavingType.STOCKS || s.type === SavingType.ETF);
+  const equitiesSavings = savings.filter(s => s.type === SavingType.STOCKS || s.type === SavingType.ETF || s.type === SavingType.BONDS);
   const symbols = [...new Set(equitiesSavings.map(s => (s as any).details?.symbol || s.name))];
+  const totalValue = equitiesSavings.reduce((sum, s) => sum + s.amount, 0);
 
   // Calculate performance for each symbol
   const symbolPerformance = symbols.map(symbol => {
@@ -77,8 +64,12 @@ export const EquitiesCard: React.FC<EquitiesCardProps> = ({
           </div>
         </div>
         <button 
-          onClick={onToggleVisibility}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+          data-dropdown-option="true"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleVisibility();
+          }}
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-red-500 transition-all duration-200 text-slate-600 hover:text-red-100"
           aria-label={isVisible ? 'Ascunde card' : 'Afișează card'}
         >
           <Eye size={18} />
@@ -88,7 +79,7 @@ export const EquitiesCard: React.FC<EquitiesCardProps> = ({
   }
 
   return (
-    <motion.div 
+    <motion.div
       variants={itemVariants}
       whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -100,62 +91,42 @@ export const EquitiesCard: React.FC<EquitiesCardProps> = ({
         </div>
         <div className="text-right">
           <div className="flex items-center justify-end gap-2 mb-1">
-            <div className="relative">
-              <select 
-                value={currency}
-                onChange={(e) => onCurrencyChange(e.target.value as any)}
-                className="appearance-none bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 pr-8 text-xs font-black uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              >
-                <option value="BASE">AUTO</option>
-                {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-            <button 
-              onClick={onToggleVisibility}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+            <button
+              data-dropdown-option="true"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleVisibility();
+              }}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-red-500 transition-all duration-200 text-slate-600 hover:text-red-100"
               aria-label="Ascunde card"
             >
               <EyeOff size={18} />
             </button>
           </div>
-          <p className="text-slate-400 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest">Piața de Capital</p>
-          <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
-            {formatCurrency(stocksValue, displayCurrency)}
-          </h3>
+          <p className="text-slate-600 text-[10px] font-black uppercase tracking-widest">Acțiuni & ETF & Titluri de Stat</p>
         </div>
       </div>
-      
-      {/* Symbols List */}
-      <div className="mt-4 space-y-2 z-10">
-        <p className="text-[9px] font-black text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-3">Portofoliu</p>
-        <div className="grid grid-cols-1 gap-2">
-          {symbolPerformance.slice(0, 4).map(({ symbol, performance, currentValue }) => (
-            <div key={symbol} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-gray-700 rounded-lg">
-              <span className="text-xs font-black text-slate-900 dark:text-gray-100">{symbol}</span>
-              <div className="flex items-center gap-1">
-                {performance >= 0 ? (
-                  <TrendingUp className="w-3 h-3 text-emerald-500" />
-                ) : (
-                  <TrendingDown className="w-3 h-3 text-red-500" />
-                )}
-                <span className={`text-xs font-black ${performance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {performance >= 0 ? '+' : ''}{performance.toFixed(2)}%
-                </span>
-              </div>
-            </div>
-          ))}
-          {symbols.length > 4 && (
-            <p className="text-[9px] text-slate-400 dark:text-gray-400 text-center">
-              +{symbols.length - 4} mai multe...
-            </p>
-          )}
+
+      <div className="z-10">
+        <div className="mb-4">
+          <p className="text-[9px] font-black uppercase tracking-wider text-slate-600 mb-1">📈 Acțiuni & ETF & Titluri de Stat</p>
+          <p className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+            {formatCurrency(totalValue, 'RON')}
+          </p>
+          <p className="text-xs text-slate-600 mt-1">
+            {equitiesSavings.length} active{equitiesSavings.length !== 1 ? ' de investiții' : ' de investiție'}
+          </p>
         </div>
+
+        <p className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+          {formatCurrency(value, displayCurrency)}
+          <span className="text-[10px] font-normal text-slate-600 ml-2">Valoare în {displayCurrency}</span>
+        </p>
       </div>
-      
+
       <div className="flex items-center gap-2 mt-6 z-10">
-        <div className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-900" />
-        <p className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest">Acțiuni & ETF-uri</p>
+        <div className="w-2 h-2 rounded-full bg-white" />
+        <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Creștere pe termen lung</p>
       </div>
     </motion.div>
   );

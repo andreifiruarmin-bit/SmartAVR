@@ -2,35 +2,24 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Currency } from '../../../types';
 import { formatCurrency } from '../../../lib/utils';
-import { Wallet, EyeOff, Eye, ChevronDown } from 'lucide-react';
-import { SavingType } from '../../../types';
+import { Wallet, EyeOff, Eye } from 'lucide-react';
 import { itemVariants } from '../types';
 
 interface CashReserveCardProps {
   value: number;
-  currency: Currency | 'BASE';
-  activeCurrencies: Currency[];
-  displayCurrencyMode: 'RON' | 'EUR';
+  displayCurrency: Currency;
+  averageDepositYield: number;
   isVisible: boolean;
   onToggleVisibility: () => void;
-  onCurrencyChange: (c: Currency | 'BASE') => void;
-  totals: {
-    byType: Record<string, number>;
-  };
 }
 
 export const CashReserveCard: React.FC<CashReserveCardProps> = ({
   value,
-  currency,
-  activeCurrencies,
-  displayCurrencyMode,
+  displayCurrency,
+  averageDepositYield,
   isVisible,
-  onToggleVisibility,
-  onCurrencyChange,
-  totals
+  onToggleVisibility
 }) => {
-  const displayCurrency = currency === 'BASE' ? displayCurrencyMode : currency;
-  const cashValue = totals.byType[SavingType.CASH_RESERVE] || 0;
 
   if (!isVisible) {
     return (
@@ -50,8 +39,9 @@ export const CashReserveCard: React.FC<CashReserveCardProps> = ({
           </div>
         </div>
         <button 
-          onClick={onToggleVisibility}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+          data-dropdown-option="true"
+          onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm hover:bg-red-500/80 transition-all duration-200 text-white/60 hover:text-red-100"
           aria-label={isVisible ? 'Ascunde card' : 'Afișează card'}
         >
           <Eye size={18} />
@@ -73,20 +63,13 @@ export const CashReserveCard: React.FC<CashReserveCardProps> = ({
         </div>
         <div className="text-right">
           <div className="flex items-center justify-end gap-2 mb-1">
-            <div className="relative">
-              <select 
-                value={currency}
-                onChange={(e) => onCurrencyChange(e.target.value as any)}
-                className="appearance-none bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 pr-8 text-xs font-black uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              >
-                <option value="BASE">AUTO</option>
-                {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
             <button 
-              onClick={onToggleVisibility}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+              data-dropdown-option="true"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleVisibility();
+              }}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-red-500 transition-all duration-200 text-slate-600 hover:text-red-100"
               aria-label="Ascunde card"
             >
               <EyeOff size={18} />
@@ -94,7 +77,7 @@ export const CashReserveCard: React.FC<CashReserveCardProps> = ({
           </div>
           <p className="text-slate-400 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest">Rezervă Cash</p>
           <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-gray-100 tracking-tight">
-            {formatCurrency(cashValue, displayCurrency)}
+            {formatCurrency(value, displayCurrency)}
           </h3>
         </div>
       </div>

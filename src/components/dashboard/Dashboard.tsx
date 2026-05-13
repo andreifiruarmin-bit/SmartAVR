@@ -5,7 +5,6 @@ import { SavingType, Currency } from '../../types';
 import { DashboardProps } from './types';
 import { useDashboardConfig } from './hooks/useDashboardConfig';
 import { useDashboardData } from './hooks/useDashboardData';
-import { usePieInteraction } from './hooks/usePieInteraction';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardConfig } from './DashboardConfig';
 import { PieChartConfig } from './PieChartConfig';
@@ -17,25 +16,29 @@ import { EquitiesCard } from './cards/EquitiesCard';
 import { PortfolioEvolutionCard } from './cards/PortfolioEvolutionCard';
 import { containerVariants } from './types';
 
-export const Dashboard: React.FC<DashboardProps> = ({ 
-  savings, 
-  totals, 
-  rates, 
-  onSliceClick, 
-  loading, 
+export const Dashboard: React.FC<DashboardProps> = ({
+  savings,
+  totals,
+  rates,
+  onSliceClick,
+  loading,
   onRatesUpdate,
-  onNavigate 
+  onNavigate,
+  displayCurrency = 'RON',
+  onDisplayCurrencyChange
 }) => {
   const [selectedCurrency, setSelectedCurrency] = useState<Currency | 'ALL'>('ALL');
   const [displayCurrencyMode, setDisplayCurrencyMode] = useState<'RON' | 'EUR'>('RON');
   const [isRefreshingGold, setIsRefreshingGold] = useState(false);
 
+  const handleDisplayCurrencyModeChange = (mode: 'RON' | 'EUR') => {
+    setDisplayCurrencyMode(mode);
+  };
+
   const { cardSettings, updateCardSettings, showConfig, setShowConfig, confirmHideId, setConfirmHideId } = useDashboardConfig();
   const [showPieChartConfig, setShowPieChartConfig] = useState(false);
 
   const data = useDashboardData(savings, rates, totals, selectedCurrency, displayCurrencyMode, cardSettings);
-
-  const { activeSliceIndex, setActiveSliceIndex, handlePieClick } = usePieInteraction(onSliceClick, data.typeData);
 
   const isRatesStale = rates.lastUpdated
     ? (Date.now() - new Date(String(rates.lastUpdated)).getTime()) / 36e5 > 24
@@ -92,13 +95,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             selectedCurrency={selectedCurrency}
             availableCurrencies={data.availableCurrencies}
             displayCurrencyMode={displayCurrencyMode}
-            activeSliceIndex={activeSliceIndex}
-            onPieClick={handlePieClick}
-            onSliceIndexClose={() => setActiveSliceIndex(null)}
-            onCurrencyChange={setSelectedCurrency}
-            onDisplayModeToggle={() => setDisplayCurrencyMode(prev => prev === 'RON' ? 'EUR' : 'RON')}
             isRatesStale={isRatesStale}
             onOpenPieChartConfig={() => setShowPieChartConfig(true)}
+            onDisplayCurrencyModeChange={handleDisplayCurrencyModeChange}
           />
         </div>
 
@@ -106,7 +105,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {savings.some(s => s.type === 'Rezervă Cash') && (
           <div 
             className="relative group cursor-pointer"
-            onClick={() => onNavigate?.('detail-cash')}
+            onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-dropdown-option]')) onNavigate?.('detail-cash'); }}
           >
             <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 
                  transition-opacity duration-200">
@@ -116,20 +115,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <CashReserveCard
               value={data.getCardValue('cash_reserve', SavingType.CASH_RESERVE)}
-              currency={cardSettings['cash_reserve'].currency}
-              activeCurrencies={data.activeCurrencies}
-              displayCurrencyMode={displayCurrencyMode}
+              displayCurrency={displayCurrencyMode}
+              averageDepositYield={totals.averageDepositYield}
               isVisible={cardSettings['cash_reserve'].visible}
               onToggleVisibility={() => updateCardSettings('cash_reserve', { visible: !cardSettings['cash_reserve'].visible })}
-              onCurrencyChange={(c) => updateCardSettings('cash_reserve', { currency: c })}
-              totals={totals}
             />
           </div>
         )}
         {savings.some(s => s.type === 'Depozit Bancar') && (
           <div 
             className="relative group cursor-pointer"
-            onClick={() => onNavigate?.('detail-deposits')}
+            onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-dropdown-option]')) onNavigate?.('detail-deposits'); }}
           >
             <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 
                  transition-opacity duration-200">
@@ -139,21 +135,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <BankDepositsCard
               value={data.getCardValue('bank_deposits', SavingType.DEPOSIT)}
-              currency={cardSettings['bank_deposits'].currency}
-              activeCurrencies={data.activeCurrencies}
-              displayCurrencyMode={displayCurrencyMode}
+              displayCurrency={displayCurrencyMode}
               averageDepositYield={totals.averageDepositYield}
               isVisible={cardSettings['bank_deposits'].visible}
               onToggleVisibility={() => updateCardSettings('bank_deposits', { visible: !cardSettings['bank_deposits'].visible })}
-              onCurrencyChange={(c) => updateCardSettings('bank_deposits', { currency: c })}
-              totals={totals}
             />
           </div>
         )}
         {savings.some(s => s.type === 'Aur') && (
           <div 
             className="relative group cursor-pointer"
-            onClick={() => onNavigate?.('detail-gold')}
+            onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-dropdown-option]')) onNavigate?.('detail-gold'); }}
           >
             <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 
                  transition-opacity duration-200">
@@ -163,24 +155,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <GoldAssetsCard
               value={data.getCardValue('gold_assets', SavingType.GOLD)}
-              currency={cardSettings['gold_assets'].currency}
-              activeCurrencies={data.activeCurrencies}
-              displayCurrencyMode={displayCurrencyMode}
+              displayCurrency={displayCurrencyMode}
               goldData={data.goldData}
               rates={rates}
               isVisible={cardSettings['gold_assets'].visible}
               isRefreshing={isRefreshingGold}
               onToggleVisibility={() => updateCardSettings('gold_assets', { visible: !cardSettings['gold_assets'].visible })}
-              onCurrencyChange={(c) => updateCardSettings('gold_assets', { currency: c })}
               onRefreshPrice={refreshGoldPrice}
-              totals={totals}
             />
           </div>
         )}
         {(savings.some(s => s.type === 'Acțiuni') || savings.some(s => s.type === 'ETF')) && (
           <div 
             className="relative group cursor-pointer"
-            onClick={() => onNavigate?.('detail-equities')}
+            onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-dropdown-option]')) onNavigate?.('detail-equities'); }}
           >
             <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 
                  transition-opacity duration-200">
@@ -190,15 +178,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <EquitiesCard
               value={data.getCardValue('equities_assets', SavingType.STOCKS)}
-              currency={cardSettings['equities_assets'].currency}
-              activeCurrencies={data.activeCurrencies}
-              displayCurrencyMode={displayCurrencyMode}
+              displayCurrency={displayCurrencyMode}
               savings={savings}
-              rates={rates}
               isVisible={cardSettings['equities_assets'].visible}
               onToggleVisibility={() => updateCardSettings('equities_assets', { visible: !cardSettings['equities_assets'].visible })}
-              onCurrencyChange={(c) => updateCardSettings('equities_assets', { currency: c })}
-              totals={totals}
             />
           </div>
         )}

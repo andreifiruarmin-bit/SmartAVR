@@ -39,10 +39,12 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [listFilter, setListFilter] = useState<{ type?: SavingType; currency?: Currency } | null>(null);
+  const [displayCurrency, setDisplayCurrency] = useState<Currency>('RON');
 
   const handleEdit = (saving: Saving) => {
     setEditingSaving(saving);
     setIsModalOpen(true);
+    setCurrentPage('dashboard');
   };
 
   // Handle Auth
@@ -315,17 +317,20 @@ export default function App() {
 
   if (currentPage === 'detail-deposits') {
     return (
-      <motion.div 
-        initial={{opacity:0, x:30}} 
-        animate={{opacity:1, x:0}} 
-        exit={{opacity:0, x:-30}} 
+      <motion.div
+        initial={{opacity:0, x:30}}
+        animate={{opacity:1, x:0}}
+        exit={{opacity:0, x:-30}}
         transition={{duration:0.25}}
         className="min-h-screen bg-slate-50 pb-24"
       >
-        <BankDepositsDetail 
-          savings={savings} 
-          rates={rates} 
-          onBack={() => setCurrentPage('dashboard')} 
+        <BankDepositsDetail
+          savings={savings}
+          rates={rates}
+          displayCurrency={displayCurrency}
+          onBack={() => setCurrentPage('dashboard')}
+          onEdit={handleEdit}
+          onDelete={deleteSaving}
         />
       </motion.div>
     );
@@ -333,16 +338,20 @@ export default function App() {
 
   if (currentPage === 'detail-cash') {
     return (
-      <motion.div 
-        initial={{opacity:0, x:30}} 
-        animate={{opacity:1, x:0}} 
-        exit={{opacity:0, x:-30}} 
+      <motion.div
+        initial={{opacity:0, x:30}}
+        animate={{opacity:1, x:0}}
+        exit={{opacity:0, x:-30}}
         transition={{duration:0.25}}
         className="min-h-screen bg-slate-50 pb-24"
       >
-        <CashReserveDetail 
-          savings={savings} 
-          onBack={() => setCurrentPage('dashboard')} 
+        <CashReserveDetail
+          savings={savings}
+          rates={rates}
+          displayCurrency={displayCurrency}
+          onBack={() => setCurrentPage('dashboard')}
+          onEdit={handleEdit}
+          onDelete={deleteSaving}
         />
       </motion.div>
     );
@@ -368,17 +377,20 @@ export default function App() {
 
   if (currentPage === 'detail-equities') {
     return (
-      <motion.div 
-        initial={{opacity:0, x:30}} 
-        animate={{opacity:1, x:0}} 
-        exit={{opacity:0, x:-30}} 
+      <motion.div
+        initial={{opacity:0, x:30}}
+        animate={{opacity:1, x:0}}
+        exit={{opacity:0, x:-30}}
         transition={{duration:0.25}}
         className="min-h-screen bg-slate-50 pb-24"
       >
-        <EquitiesDetail 
-          savings={savings} 
-          rates={rates} 
-          onBack={() => setCurrentPage('dashboard')} 
+        <EquitiesDetail
+          savings={savings}
+          displayCurrency={displayCurrency}
+          rates={rates}
+          onBack={() => setCurrentPage('dashboard')}
+          onEdit={handleEdit}
+          onDelete={deleteSaving}
         />
       </motion.div>
     );
@@ -462,6 +474,8 @@ export default function App() {
                 rates={rates}
                 onSliceClick={handleDashboardFilter}
                 loading={savingsLoading}
+                displayCurrency={displayCurrency}
+                onDisplayCurrencyChange={setDisplayCurrency}
                 onNavigate={(page) => setCurrentPage(page as any)}
               />
             </motion.div>

@@ -156,7 +156,7 @@ export const useDashboardData = (
   const getCardValue = (id: string, type?: SavingType) => {
     const settings = cardSettings[id];
     const currency = settings.currency === 'BASE' ? displayCurrencyMode : settings.currency;
-    
+
     let ronValue = 0;
     if (type) {
       ronValue = totals.byType[type] || 0;
@@ -167,6 +167,10 @@ export const useDashboardData = (
       ronValue = filteredTotals.totalInBase;
     }
 
+    // Convert based on currency setting
+    if (displayCurrencyMode === 'EUR' && currency === 'EUR') {
+      return ronValue / (rates.EUR || 1);
+    }
     if (currency === 'RON') return ronValue;
     return ronValue / (rates[currency] || 1);
   };

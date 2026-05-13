@@ -39,6 +39,8 @@ export interface DashboardProps {
   loading?: boolean;
   onRatesUpdate?: (rates: Record<string, number>) => void;
   onNavigate?: (page: string) => void;
+  displayCurrency?: Currency;
+  onDisplayCurrencyChange?: (currency: Currency) => void;
 }
 
 export const COLORS = ['#f43e01', '#10b981', '#f59e0b', '#6366f1', '#1e293b', '#94a3b8'];

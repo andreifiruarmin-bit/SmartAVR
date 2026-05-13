@@ -2,37 +2,24 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Currency } from '../../../types';
 import { formatCurrency } from '../../../lib/utils';
-import { TrendingUp, Landmark, EyeOff, Eye, ChevronDown, ArrowUpRight } from 'lucide-react';
-import { SavingType } from '../../../types';
+import { TrendingUp, Landmark, EyeOff } from 'lucide-react';
 import { itemVariants } from '../types';
 
 interface BankDepositsCardProps {
   value: number;
-  currency: Currency | 'BASE';
-  activeCurrencies: Currency[];
-  displayCurrencyMode: 'RON' | 'EUR';
+  displayCurrency: Currency;
   averageDepositYield: number;
   isVisible: boolean;
   onToggleVisibility: () => void;
-  onCurrencyChange: (c: Currency | 'BASE') => void;
-  totals: {
-    byType: Record<string, number>;
-  };
 }
 
 export const BankDepositsCard: React.FC<BankDepositsCardProps> = ({
   value,
-  currency,
-  activeCurrencies,
-  displayCurrencyMode,
+  displayCurrency,
   averageDepositYield,
   isVisible,
-  onToggleVisibility,
-  onCurrencyChange,
-  totals
+  onToggleVisibility
 }) => {
-  const displayCurrency = currency === 'BASE' ? displayCurrencyMode : currency;
-  const depositsValue = totals.byType[SavingType.DEPOSIT] || 0;
 
   if (!isVisible) {
     return (
@@ -52,8 +39,8 @@ export const BankDepositsCard: React.FC<BankDepositsCardProps> = ({
           </div>
         </div>
         <button 
-          onClick={onToggleVisibility}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+          onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm hover:bg-red-500/80 transition-all duration-200 text-white/60 hover:text-red-100"
           aria-label={isVisible ? 'Ascunde card' : 'Afișează card'}
         >
           <Eye size={18} />
@@ -74,33 +61,24 @@ export const BankDepositsCard: React.FC<BankDepositsCardProps> = ({
           <div className="flex items-center gap-2">
              <p className="text-slate-500 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest">Depozite Bancare</p>
              <button 
-                onClick={onToggleVisibility}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400"
+                data-dropdown-option="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleVisibility();
+                }}
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm hover:bg-red-500/80 transition-all duration-200 text-white/60 hover:text-red-100"
                 aria-label="Ascunde card"
               >
                 <EyeOff size={18} />
               </button>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative transition-opacity">
-              <select 
-                value={currency}
-                onChange={(e) => onCurrencyChange(e.target.value as any)}
-                className="appearance-none bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 pr-8 text-xs font-black uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              >
-                <option value="BASE">AUTO</option>
-                {activeCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500 dark:bg-emerald-900/20 text-emerald-400 dark:text-emerald-500 rounded-lg">
-              <TrendingUp className="w-3 h-3" />
-              <span className="text-[10px] font-black">{averageDepositYield.toFixed(2)}%</span>
-            </div>
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/90 backdrop-blur-sm text-white rounded-full border border-green-400/30">
+            <TrendingUp className="w-3 h-3" />
+            <span className="text-[10px] font-black">{averageDepositYield.toFixed(2)}%</span>
           </div>
         </div>
         <h3 className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tight">
-          {formatCurrency(depositsValue, displayCurrency)}
+          {formatCurrency(value, displayCurrency)}
         </h3>
       </div>
       <div className="flex items-center gap-2 mt-4 z-10">
@@ -111,7 +89,6 @@ export const BankDepositsCard: React.FC<BankDepositsCardProps> = ({
           <p className="text-[10px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-widest">Randament Mediu Portofoliu</p>
           <p className="text-[9px] text-slate-500 dark:text-gray-500 font-bold uppercase tracking-tight italic">Depozite active acum</p>
         </div>
-        <ArrowUpRight className="w-3 h-3 text-slate-600 dark:text-gray-400 ml-auto group-hover:text-white dark:group-hover:text-gray-100 transition-colors" />
       </div>
     </motion.div>
   );

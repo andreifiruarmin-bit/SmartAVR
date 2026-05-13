@@ -1,18 +1,28 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { ChevronLeft, Wallet, Calendar, AlertCircle } from 'lucide-react';
-import { Saving, SavingType } from '../types';
-import { formatCurrency, convertToRON } from '../lib/utils';
+import { ChevronLeft, Wallet, Calendar, AlertCircle, Edit, Trash2 } from 'lucide-react';
+import { Saving, SavingType, Currency } from '../types';
+import { formatCurrency } from '../lib/utils';
+import { PieChartWithLegend } from '../components/dashboard/cards/PieChartWithLegend';
 
 interface CashReserveDetailProps {
   savings: Saving[];
+  rates: Record<string, number>;
+  displayCurrency: Currency;
   onBack: () => void;
+  onEdit: (saving: Saving) => void;
+  onDelete: (id: string) => void;
 }
 
-export const CashReserveDetail: React.FC<CashReserveDetailProps> = ({ 
-  savings, 
-  onBack 
+export const CashReserveDetail: React.FC<CashReserveDetailProps> = ({
+  savings,
+  rates,
+  displayCurrency,
+  onBack,
+  onEdit,
+  onDelete
 }) => {
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const cashReserves = useMemo(() => 
     savings.filter(s => s.type === SavingType.CASH_RESERVE), 
     [savings]
@@ -21,16 +31,23 @@ export const CashReserveDetail: React.FC<CashReserveDetailProps> = ({
   const totalsByCurrency = useMemo(() => {
     const totals: Record<string, number> = {};
     cashReserves.forEach(cash => {
-      totals[cash.currency] = (totals[cash.currency] || 0) + cash.amount;
+      const ronValue = cash.amount * (rates[cash.currency] || 1);
+      totals[cash.currency] = (totals[cash.currency] || 0) + ronValue;
     });
     return totals;
-  }, [cashReserves]);
+  }, [cashReserves, rates]);
+
+  const currencyData = useMemo(() => {
+    return Object.entries(totalsByCurrency)
+      .map(([name, value]) => ({ name, value }))
+      .filter(item => item.value > 0);
+  }, [totalsByCurrency]);
 
   const totalRON = useMemo(() => {
     return cashReserves.reduce((sum, cash) => 
-      sum + (cash.amount * (1)), // Assuming 1:1 for cash, adjust if needed
+      sum + (cash.amount * (rates[cash.currency] || 1)), 
     0);
-  }, [cashReserves]);
+  }, [cashReserves, rates]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -60,6 +77,26 @@ export const CashReserveDetail: React.FC<CashReserveDetailProps> = ({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
+        {/* Currency Breakdown PIE Chart */}
+        {currencyData.length > 0 && (
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+            <h2 className="text-lg font-black text-slate-900 uppercase tracking-wider mb-6">
+              Impartire pe Monede
+            </h2>
+            <PieChartWithLegend
+              data={currencyData.map(item => ({
+                ...item,
+                value: displayCurrency === 'EUR' ? item.value / (rates.EUR || 1) : item.value
+              }))}
+              displayCurrency={displayCurrency}
+              totalValue={displayCurrency === 'EUR' ? totalRON / (rates.EUR || 1) : totalRON}
+              height={300}
+              centerLabel={currencyData.length.toString()}
+              centerDescription="monede"
+            />
+          </div>
+        )}
+
         {/* Total per Currency */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
           <h2 className="text-lg font-black text-slate-900 uppercase tracking-wider mb-6">
@@ -74,7 +111,7 @@ export const CashReserveDetail: React.FC<CashReserveDetailProps> = ({
                       {currency}
                     </p>
                     <p className="text-2xl font-black text-slate-900">
-                      {formatCurrency(amount, currency as any)}
+                      {formatCurrency(amount, displayCurrency)}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center">
@@ -103,7 +140,7 @@ export const CashReserveDetail: React.FC<CashReserveDetailProps> = ({
                   Valoare curentă
                 </p>
                 <p className="text-xl font-black text-slate-900">
-                  {formatCurrency(totalRON, 'RON')}
+                  {formatCurrency(totalRON, displayCurrency)}
                 </p>
               </div>
             </div>
@@ -135,6 +172,22 @@ export const CashReserveDetail: React.FC<CashReserveDetailProps> = ({
                     <p className="text-sm text-slate-500 font-medium">
                       {cash.currency}
                     </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        onClick={() => onEdit(cash)}
+                        className="p-2 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 transition-colors"
+                        title="Editează"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm({ id: cash.id, name: cash.name })}
+                        className="p-2 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors"
+                        title="Șterge"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -142,6 +195,37 @@ export const CashReserveDetail: React.FC<CashReserveDetailProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-4">
+              Confirmare Ștergere
+            </h3>
+            <p className="text-slate-700 font-medium mb-6">
+              Sunteți sigur că ștergeți "{deleteConfirm.name}"? Această acțiune este ireversibilă.
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-2xl hover:bg-slate-200 transition-colors"
+              >
+                Anulează
+              </button>
+              <button
+                onClick={() => {
+                  onDelete(deleteConfirm.id);
+                  setDeleteConfirm(null);
+                }}
+                className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-colors"
+              >
+                Șterge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
