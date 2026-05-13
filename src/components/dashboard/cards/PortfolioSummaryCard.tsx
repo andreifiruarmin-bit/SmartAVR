@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Saving, Currency } from '../../../types';
-import { formatCurrency } from '../../../lib/utils';
-import { PieChart as PieChartIcon, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { itemVariants } from '../types';
+import { PieChartIcon, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Saving, SavingType, Currency } from '../../../types';
+import { formatCurrency, convertToRON, cn } from '../../../lib/utils';
+import { getAssetAttributes } from '../../../lib/assetUtils';
 import { PieChartWithLegend } from './PieChartWithLegend';
 
 interface PortfolioSummaryCardProps {
@@ -12,312 +12,205 @@ interface PortfolioSummaryCardProps {
     totalInBase: number;
     byCurrency: Record<string, number>;
     byType: Record<string, number>;
-    averageYield: number;
-    averageDepositYield: number;
-    totalDepositsBase: number;
   };
   rates: Record<string, number>;
-  filteredTotals: { totalInBase: number; byType: Record<string, number> };
-  typeData: Array<{ name: string; value: number }>;
-  currencyData: Array<{ name: string; value: number }>;
-  selectedCurrency: Currency | 'ALL';
-  availableCurrencies: (Currency | 'ALL')[];
-  displayCurrencyMode: 'RON' | 'EUR';
-  isRatesStale: boolean;
-  onOpenPieChartConfig?: () => void;
-  onDisplayCurrencyModeChange?: (mode: 'RON' | 'EUR') => void;
+  displayCurrency: Currency;
+  onCurrencyChange: (currency: Currency) => void;
+  actualCurrencies: Currency[];
+  onSliceDoubleClick?: (filter: { type?: SavingType; currency?: Currency }) => void;
+  onSliceClick?: (filter: { category: string; value: string } | null) => void;
 }
+
+const COLORS = [
+  '#f43e01', // Primary
+  '#10b981', // Emerald
+  '#f59e0b', // Amber/Gold
+  '#6366f1', // Indigo
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+  '#8b5cf6', // Violet
+  '#1e293b'  // Slate
+];
 
 export const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   savings,
   totals,
   rates,
-  filteredTotals,
-  typeData,
-  currencyData,
-  selectedCurrency,
-  availableCurrencies,
-  displayCurrencyMode,
-  isRatesStale,
-  onOpenPieChartConfig,
-  onDisplayCurrencyModeChange
+  displayCurrency,
+  onCurrencyChange,
+  actualCurrencies,
+  onSliceDoubleClick,
+  onSliceClick
 }) => {
-  // Derive user's actual currencies
-  const userCurrencies = [...new Set(savings.map(s => s.currency))];
-  const [displayCurrency, setDisplayCurrency] = useState<Currency>(userCurrencies[0] as Currency || 'RON');
-  
-  // Pie chart selector state
   const [activePie, setActivePie] = useState(0);
-  const pieChartTypes = [
-    'Tipuri Instrumente',
-    'Impartire Monede',
-    'Lichiditate',
-    'Profil Risc'
-  ];
-  
-  // Swipe support
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-  
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.changedTouches[0].screenX;
+  const [selectedSlice, setSelectedSlice] = useState<string | null>(null);
+
+  const displayTotal = useMemo(() => {
+    if (displayCurrency === 'RON') return totals.totalInBase;
+    return totals.totalInBase / (rates[displayCurrency] || 1);
+  }, [totals.totalInBase, rates, displayCurrency]);
+
+  const handleCurrencySwitch = (cur: Currency) => {
+    onCurrencyChange(cur);
   };
-  
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    touchEndX.current = e.changedTouches[0].screenX;
-    handleSwipe();
-  };
-  
-  const handleSwipe = () => {
-    const swipeThreshold = 50;
-    const diff = touchStartX.current - touchEndX.current;
-    
-    if (Math.abs(diff) > swipeThreshold) {
-      if (diff > 0) {
-        // Swipe left - next chart
-        setActivePie((prev) => (prev + 1) % pieChartTypes.length);
-      } else {
-        // Swipe right - previous chart
-        setActivePie((prev) => (prev - 1 + pieChartTypes.length) % pieChartTypes.length);
-      }
-    }
-  };
-  
-  const getPortfolioValue = () => {
-    const totalRON = totals.totalInBase;
-    if (displayCurrencyMode === 'EUR') {
-      return totalRON / (rates.EUR || 1);
-    }
-    if (displayCurrency === 'RON') return totalRON;
-    return totalRON / (rates[displayCurrency] || 1);
-  };
-  
-  // Data processing functions for different pie chart types
-  const getLiquidityData = () => {
-    const liquid = savings.filter(s => 
-      s.type === 'Rezervă Cash' || s.type === 'Acțiuni' || s.type === 'ETF'
-    ).reduce((sum, s) => sum + (s.amount * (rates[s.currency] || 1)), 0);
-    
-    const semiLiquid = savings.filter(s => {
-      if (s.type === 'Depozit Bancar' || s.type === 'Titluri de Stat') {
-        if ('maturityDate' in s && (s as any).maturityDate) {
-          const maturity = new Date((s as any).maturityDate);
-          const daysUntilMaturity = (maturity.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-          return daysUntilMaturity <= 90;
-        }
-      }
-      return false;
-    }).reduce((sum, s) => sum + (s.amount * (rates[s.currency] || 1)), 0);
-    
-    const blocked = savings.filter(s => {
-      if (s.type === 'Aur') return true;
-      if (s.type === 'Depozit Bancar' || s.type === 'Titluri de Stat') {
-        if ('maturityDate' in s && (s as any).maturityDate) {
-          const maturity = new Date((s as any).maturityDate);
-          const daysUntilMaturity = (maturity.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-          return daysUntilMaturity > 90;
-        }
-        return true;
-      }
-      return false;
-    }).reduce((sum, s) => sum + (s.amount * (rates[s.currency] || 1)), 0);
-    
-    return [
-      { name: 'Lichid', value: liquid },
-      { name: 'Semi-lichid', value: semiLiquid },
-      { name: 'Blocat', value: blocked }
-    ].filter(item => item.value > 0);
-  };
-  
-  const getRiskProfileData = () => {
-    const lowRisk = savings.filter(s => 
-      s.type === 'Depozit Bancar' || s.type === 'Rezervă Cash' || s.type === 'Titluri de Stat'
-    ).reduce((sum, s) => sum + (s.amount * (rates[s.currency] || 1)), 0);
-    
-    const mediumRisk = savings.filter(s => 
-      s.type === 'ETF' || s.type === 'Aur'
-    ).reduce((sum, s) => sum + (s.amount * (rates[s.currency] || 1)), 0);
-    
-    const highRisk = savings.filter(s => 
-      s.type === 'Acțiuni'
-    ).reduce((sum, s) => sum + (s.amount * (rates[s.currency] || 1)), 0);
-    
-    return [
-      { name: 'Risc Scăzut', value: lowRisk },
-      { name: 'Risc Mediu', value: mediumRisk },
-      { name: 'Risc Ridicat', value: highRisk }
-    ].filter(item => item.value > 0);
-  };
-  
-  const getCurrencyDataWithGold = () => {
-    const currencyMap: Record<string, number> = {};
-    
+
+  const typeData = useMemo(() => 
+    Object.entries(totals.byType).map(([name, value]) => ({ name, value })),
+  [totals.byType]);
+
+  const currencyData = useMemo(() => 
+    Object.entries(totals.byCurrency).map(([name, value]) => ({ 
+      name: name === 'XAU' ? 'AUR' : name, 
+      value 
+    })),
+  [totals.byCurrency]);
+
+  // Compute stats from real data
+  const { liquidityData, riskData, horizonData } = useMemo(() => {
+    const liq: Record<string, number> = { 'Lichid': 0, 'Semi-lichid': 0, 'Blocat': 0 };
+    const risk: Record<string, number> = { 'Scăzut': 0, 'Mediu': 0, 'Ridicat': 0 };
+    const hor: Record<string, number> = { 'Sub 1 an': 0, '1-3 ani': 0, 'Peste 3 ani': 0 };
+
     savings.forEach(s => {
-      const ronValue = s.amount * (rates[s.currency] || 1);
-      currencyMap[s.currency] = (currencyMap[s.currency] || 0) + ronValue;
+      const ronValue = convertToRON(s.amount, s.currency, rates);
+      const attrs = getAssetAttributes(s.type);
+      liq[attrs.liquidity] += ronValue;
+      risk[attrs.risk] += ronValue;
+      hor[attrs.horizon] += ronValue;
     });
-    
-    // Add gold as a separate currency
-    const goldSavings = savings.filter(s => s.type === 'Aur');
-    if (goldSavings.length > 0) {
-      const goldValue = goldSavings.reduce((sum, s) => {
-        const grams = (s as any).weightInGrams || 0;
-        return sum + (grams * (rates.XAU || 1));
-      }, 0);
-      currencyMap['AUR'] = goldValue;
-    }
-    
-    return Object.entries(currencyMap)
-      .map(([name, value]) => ({ name, value }))
-      .filter(item => item.value > 0);
-  };
-  
-  const getPieChartData = (index: number) => {
-    const rawData = (() => {
-      switch (index) {
-        case 0: return typeData; // By Type
-        case 1: return getCurrencyDataWithGold(); // By Currency (with gold)
-        case 2: return getLiquidityData(); // Liquidity
-        case 3: return getRiskProfileData(); // Risk Profile
-        default: return typeData;
-      }
-    })();
 
-    // Convert values based on displayCurrencyMode
-    if (displayCurrencyMode === 'EUR') {
-      const eurRate = rates.EUR || 1;
-      return rawData.map(item => ({
-        ...item,
-        value: item.value / eurRate
-      }));
-    }
+    return {
+      liquidityData: Object.entries(liq).filter(([_, v]) => v > 0).map(([name, value]) => ({ name, value })),
+      riskData: Object.entries(risk).filter(([_, v]) => v > 0).map(([name, value]) => ({ name, value })),
+      horizonData: Object.entries(hor).filter(([_, v]) => v > 0).map(([name, value]) => ({ name, value }))
+    };
+  }, [savings, rates]);
 
-    return rawData;
+  const allCharts = [
+    { id: 'type', title: 'Categorii Active', data: typeData, label: 'Categorii', isType: true },
+    { id: 'currency', title: 'Expunere Valutară', data: currencyData, label: 'Valute' },
+    { id: 'liquidity', title: 'Profil Lichiditate', data: liquidityData, label: 'Lichiditate' },
+    { id: 'risk', title: 'Profil Risc', data: riskData, label: 'Risc' },
+    { id: 'horizon', title: 'Orizont Timp', data: horizonData, label: 'Orizont' }
+  ];
+
+  const handlePieChange = (index: number) => {
+    setActivePie(index);
+    setSelectedSlice(null);
+    onSliceClick?.(null);
   };
+
+  const nextPie = () => handlePieChange((activePie + 1) % allCharts.length);
+  const prevPie = () => handlePieChange((activePie - 1 + allCharts.length) % allCharts.length);
 
   return (
-    <motion.div 
-      variants={itemVariants}
-      whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="flex flex-col bg-white px-4 py-3 md:px-6 md:py-4 lg:p-10 rounded-[3rem] border border-slate-200 shadow-sm relative group transition-all duration-500"
-    >
-      {/* Stale Rates Banner */}
-      {isRatesStale && (
-        <div className="absolute top-4 left-4 right-4 z-20 flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm">
-          <AlertTriangle size={16} />
-          <span>Cursurile valutare ar putea fi neactualizate. Ultima actualizare: {rates.lastUpdated ? new Date(rates.lastUpdated as string | number).toLocaleDateString('ro-RO') : 'Necunoscut'}</span>
-        </div>
-      )}
-
-      <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-8 z-10">
-        <div className="w-full">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <p className="text-slate-400 dark:text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">
-                Sold Total Portofoliu
-              </p>
-            </div>
+    <div className="bg-white p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border border-slate-200 shadow-sm relative overflow-hidden transition-colors dark:bg-slate-900 dark:border-slate-800">
+      <div className="flex flex-col md:flex-row justify-between gap-6 mb-10">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Sold Total Portofoliu</p>
           </div>
-          <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-6">
-            <h3 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 tracking-tighter break-all sm:break-normal">
-              {formatCurrency(getPortfolioValue(), displayCurrency)}
-            </h3>
-          </div>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            {formatCurrency(displayTotal, displayCurrency)}
+          </h2>
           
-          {/* Currency Switcher */}
-          {userCurrencies.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              {userCurrencies.map((currency) => (
-                <button
-                  key={currency}
-                  onClick={() => {
-                    setDisplayCurrency(currency as Currency);
-                    if (currency === 'EUR' && onDisplayCurrencyModeChange) {
-                      onDisplayCurrencyModeChange('EUR');
-                    } else if (currency === 'RON' && onDisplayCurrencyModeChange) {
-                      onDisplayCurrencyModeChange('RON');
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-black transition-all ${
-                    displayCurrency === currency
-                      ? 'bg-primary text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {currency}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="hidden md:flex gap-2">
-          <button 
-            onClick={onOpenPieChartConfig}
-            className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 hover:bg-primary hover:text-white transition-all cursor-pointer group"
-            title="Configurează grafice pie"
-          >
-            <PieChartIcon className="w-6 h-6" />
-          </button>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button
+              onClick={() => handleCurrencySwitch('RON')}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all shadow-sm",
+                displayCurrency === 'RON' ? "bg-slate-900 text-white dark:bg-primary" : "bg-slate-50 text-slate-400 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-500"
+              )}
+            >
+              RON
+            </button>
+            {actualCurrencies.filter(c => c !== 'RON' && c !== 'AUR').map(cur => (
+              <button
+                key={cur}
+                onClick={() => handleCurrencySwitch(cur)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all shadow-sm",
+                  displayCurrency === cur ? "bg-slate-900 text-white dark:bg-primary" : "bg-slate-50 text-slate-400 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-500"
+                )}
+              >
+                {cur}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-      
-      {/* Single PIE Chart with Navigation */}
-      <div className="flex flex-col items-center mt-auto z-10" 
-           onTouchStart={handleTouchStart}
-           onTouchEnd={handleTouchEnd}>
-        <PieChartWithLegend
-          data={getPieChartData(activePie)}
-          title={pieChartTypes[activePie]}
-          displayCurrency={displayCurrencyMode === 'EUR' ? 'EUR' : displayCurrency}
-          totalValue={displayCurrencyMode === 'EUR' ? totals.totalInBase / (rates.EUR || 1) : totals.totalInBase}
-          height={300}
-          centerLabel={getPieChartData(activePie).length.toString()}
-          centerDescription={activePie === 0 ? 'tipuri' : activePie === 1 ? 'monede' : activePie === 2 ? 'categorii' : 'profiluri'}
-        />
-        
-        {/* Navigation Controls */}
-        <div className="flex items-center gap-4 mt-6">
-          <button
-            onClick={() => setActivePie((prev) => (prev - 1 + pieChartTypes.length) % pieChartTypes.length)}
-            className="p-3 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
-            aria-label="Previous chart"
+
+      {/* Interactive Chart Container */}
+      <div className="relative bg-slate-50 dark:bg-slate-800/50 p-6 md:p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 group transition-colors">
+        <div className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20">
+          <button 
+            onClick={prevPie}
+            className="p-2.5 bg-white dark:bg-slate-900 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-primary transition-all active:scale-90"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          
-          {/* Dot Indicators */}
-          <div className="flex gap-2">
-            {pieChartTypes.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setActivePie(index)}
-                className={`h-2 rounded-full transition-all ${
-                  activePie === index ? 'bg-primary w-8' : 'bg-slate-300 w-2'
-                }`}
-                aria-label={`Show ${pieChartTypes[index]}`}
-              />
-            ))}
-          </div>
-          
-          <button
-            onClick={() => setActivePie((prev) => (prev + 1) % pieChartTypes.length)}
-            className="p-3 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
-            aria-label="Next chart"
+        </div>
+
+        <div className="w-full flex items-center justify-center overflow-hidden">
+          <motion.div
+            key={activePie}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="w-full"
+          >
+            <PieChartWithLegend 
+              data={allCharts[activePie].data}
+              colors={COLORS}
+              centerLabel={`${allCharts[activePie].data.length} Poziții`}
+              centerSubLabel={allCharts[activePie].label}
+              title={allCharts[activePie].title}
+              selectedSlice={selectedSlice}
+              onSliceClick={(data) => {
+                const nextSlice = data ? data.name : null;
+                setSelectedSlice(nextSlice);
+                if (nextSlice) {
+                  onSliceClick?.({ category: allCharts[activePie].id, value: nextSlice });
+                } else {
+                  onSliceClick?.(null);
+                }
+              }}
+              onDoubleClick={(data) => {
+                if (allCharts[activePie].id === 'currency') {
+                  const curr = data.name === 'AUR' ? 'XAU' : data.name as Currency;
+                   onSliceDoubleClick?.({ currency: curr as Currency });
+                } else if (allCharts[activePie].id === 'type') {
+                   onSliceDoubleClick?.({ type: data.name as SavingType });
+                }
+              }}
+            />
+          </motion.div>
+        </div>
+
+        <div className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20">
+          <button 
+            onClick={nextPie}
+            className="p-2.5 bg-white dark:bg-slate-900 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-primary transition-all active:scale-90"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Navigation Indicator dots */}
+        <div className="flex gap-1.5 justify-center mt-6">
+          {allCharts.map((_, i) => (
+            <button 
+              key={i} 
+              onClick={() => handlePieChange(i)}
+              className={cn(
+                "w-1.5 h-1.5 rounded-full transition-all duration-300",
+                activePie === i ? "bg-primary w-6" : "bg-slate-200 dark:bg-slate-700 hover:bg-slate-300"
+              )} 
+            />
+          ))}
+        </div>
       </div>
-      
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        whileInView={{ opacity: 0.03, scale: 1 }}
-        className="absolute -bottom-20 -right-20 pointer-events-none"
-      >
-        <PieChartIcon className="w-[30rem] h-[30rem] text-slate-900" />
-      </motion.div>
-    </motion.div>
+    </div>
   );
 };

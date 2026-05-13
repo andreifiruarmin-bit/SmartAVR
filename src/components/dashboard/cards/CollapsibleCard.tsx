@@ -1,80 +1,65 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown } from 'lucide-react';
-import { formatCurrency } from '../../../lib/utils';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { cn } from '../../../lib/utils';
 
 interface CollapsibleCardProps {
-  cardId: string;
   title: string;
-  icon: string;
-  totalValue: number;
+  icon: React.ReactNode;
+  totalValue: string;
   isExpanded: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  className?: string;
+  headerClassName?: string;
 }
 
 export const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
-  cardId,
   title,
   icon,
   totalValue,
   isExpanded,
   onToggle,
-  children
+  children,
+  className,
+  headerClassName
 }) => {
   return (
-    <motion.div 
-      className="bg-white rounded-[3rem] border border-slate-200 shadow-sm relative group transition-all duration-500 w-full h-full"
-      whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-    >
-      {/* Collapsed Summary */}
-      <motion.div
-        className="p-6 cursor-pointer"
+    <div className={cn("bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden group transition-all duration-500", className)}>
+      <button
         onClick={onToggle}
-        layoutId={`card-${cardId}`}
+        className={cn("w-full px-8 py-6 flex items-center justify-between hover:bg-slate-50 transition-colors", headerClassName)}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-3xl">{icon}</span>
-            <div>
-              <h3 className="text-lg font-black text-slate-900">{title}</h3>
-              <p className="text-sm text-slate-500">Total</p>
-            </div>
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-slate-100 rounded-2xl group-hover:bg-primary group-hover:text-white transition-all duration-500">
+            {icon}
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xl font-black text-slate-900">
-              {formatCurrency(totalValue, 'RON')}
-            </span>
-            <motion.div
-              animate={{ rotate: isExpanded ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
-              className="p-2 rounded-full bg-slate-100"
-            >
-              <ChevronDown className="w-5 h-5 text-slate-600" />
-            </motion.div>
+          <div className="text-left">
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{title}</p>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight">{totalValue}</h3>
           </div>
         </div>
-      </motion.div>
+        <div className="flex items-center gap-4">
+          <div className={cn("p-2 rounded-xl bg-slate-100 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-500", isExpanded && "rotate-180")}>
+            <ChevronDown className="w-5 h-5" />
+          </div>
+        </div>
+      </button>
 
-      {/* Expanded Content */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="overflow-hidden"
+            transition={{ duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] }}
           >
-            <div className="px-6 pb-6">
-              <div className="border-t border-slate-200 pt-4">
-                {children}
-              </div>
+            <div className="px-8 pb-8 border-t border-slate-50">
+              {children}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };

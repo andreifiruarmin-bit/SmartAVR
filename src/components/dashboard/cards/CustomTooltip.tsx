@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatCurrency } from '../../../lib/utils';
 
-export const CustomTooltip: React.FC<{ active?: any; payload?: any }> = ({ active, payload }) => {
+export const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (

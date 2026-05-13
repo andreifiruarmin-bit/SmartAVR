@@ -6,11 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-.cursorrules*
-.gitignore*
-lista_completa_clinici_stomatologice_romania.xls
-DentalVoice_Scenarii_Test.xlsx
-AUDIT_RAPORT.md
-.gitignore
-# Local Netlify folder
-.netlify

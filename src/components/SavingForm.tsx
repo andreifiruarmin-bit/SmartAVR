@@ -16,7 +16,6 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
   const [currency, setCurrency] = useState<Currency>(initialData?.currency || 'RON');
   const [amount, setAmount] = useState<string>(initialData?.amount?.toString() || '');
   const [name, setName] = useState<string>(initialData?.name || '');
-  const [details, setDetails] = useState<Record<string, any>>(initialData?.details || {});
   
   // Bank Deposit specific fields
   const [interestRate, setInterestRate] = useState<string>((initialData as any)?.interestRate?.toString() || '');
@@ -31,8 +30,6 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
   // Stock specific
   const [symbol, setSymbol] = useState<string>(initialData?.details?.symbol || '');
   const [shares, setShares] = useState<string>(initialData?.details?.shares?.toString() || '');
-  const [avgAcquisitionPrice, setAvgAcquisitionPrice] = useState<string>((initialData as any)?.details?.averageAcquisitionPrice?.toString() || '');
-  const [market, setMarket] = useState<'BVB' | 'NYSE' | 'NASDAQ' | 'OTHER'>((initialData as any)?.details?.market || 'BVB');
 
   // Titluri de Stat shares extra fields with Deposit
   const isSecurity = type === SavingType.BONDS || type === SavingType.DEPOSIT;
@@ -61,12 +58,9 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
       }
     } else if (type === SavingType.GOLD) {
       baseData.details.weightInGrams = parseFloat(weight) || 0;
-      baseData.details.acquisitionPricePerGram = details.acquisitionPricePerGram || 0;
     } else if (type === SavingType.STOCKS || type === SavingType.ETF) {
       baseData.details.symbol = symbol.toUpperCase();
       baseData.details.shares = parseFloat(shares) || 0;
-      baseData.details.averageAcquisitionPrice = parseFloat(avgAcquisitionPrice) || 0;
-      baseData.details.market = market;
       baseData.bank = bankName; // Broker
     }
 
@@ -156,35 +150,6 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
                     placeholder="0.00"
                     className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-black text-white placeholder:text-slate-600"
                   />
-                  <label className="text-[10px] font-bold uppercase text-slate-500">Preț achiziție per gram (RON)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={(weight && parseFloat(weight)) ? (parseFloat(weight) * parseFloat(weight) / parseFloat(weight)).toString() : ''}
-                    onChange={(e) => {
-                      const newWeight = e.target.value;
-                      setWeight(newWeight);
-                      // Update details with acquisition price per gram
-                      const acquisitionPrice = parseFloat(newWeight) ? (parseFloat(weight) * parseFloat(newWeight) / parseFloat(weight)).toString() : '';
-                      setDetails(prevDetails => ({
-                        ...prevDetails,
-                        weightInGrams: parseFloat(newWeight) || 0,
-                        acquisitionPricePerGram: parseFloat(acquisitionPrice) || 0
-                      }));
-                    }}
-                    placeholder="0.00"
-                    className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-black text-white placeholder:text-slate-600"
-                  />
-                  <div className="mt-2 p-3 bg-slate-700/50 rounded-xl border border-slate-600">
-                    <p className="text-sm text-slate-300">
-                      Valoare la achiziție: <span className="font-bold text-white">
-                        {weight && parseFloat(weight) ? (parseFloat(weight) * parseFloat(weight)).toFixed(2) : '0.00'} RON
-                      </span>
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1 italic">
-                      ⚠️ Aceasta este valoarea la achiziție. Valoarea curentă a portofoliului de aur se actualizează zilnic din datele de piață.
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -301,40 +266,6 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase text-slate-500">Preț mediu achiziție (RON/acțiune)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={avgAcquisitionPrice}
-                        onChange={(e) => {
-                          const newPrice = e.target.value;
-                          setAvgAcquisitionPrice(newPrice);
-                          // Update details with average acquisition price
-                          setDetails(prev => ({
-                            ...prev,
-                            averageAcquisitionPrice: parseFloat(newPrice) || 0
-                          }));
-                        }}
-                        placeholder="0.00"
-                        className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-black text-white placeholder:text-slate-600"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase text-slate-500">Piață</label>
-                      <select
-                        value={market}
-                        onChange={(e) => setMarket(e.target.value as 'BVB' | 'NYSE' | 'NASDAQ' | 'OTHER')}
-                        className="w-full bg-slate-800 border-none rounded-xl px-2 py-3 text-sm focus:ring-2 focus:ring-primary outline-none font-black text-white cursor-pointer"
-                      >
-                        <option value="BVB">BVB</option>
-                        <option value="NYSE">NYSE</option>
-                        <option value="NASDAQ">NASDAQ</option>
-                        <option value="OTHER">Other</option>
-                      </select>
-                    </div>
-                  </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-500">Broker (opțional)</label>
                     <input
@@ -344,16 +275,6 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
                       placeholder="Tradeville, Interactive Brokers, Revolut"
                       className="w-full bg-slate-800 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none text-white placeholder:text-slate-600"
                     />
-                  </div>
-                  <div className="mt-2 p-3 bg-slate-700/50 rounded-xl border border-slate-600">
-                    <p className="text-sm text-slate-300">
-                      Valoare totală la achiziție: <span className="font-bold text-white">
-                        {avgAcquisitionPrice && shares ? (parseFloat(avgAcquisitionPrice) * parseFloat(shares)).toFixed(2) : '0.00'} RON
-                      </span>
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1 italic">
-                      ⚠️ Aceasta este valoarea la achiziție. Valoarea curentă a portofoliului de acțiuni se actualizează zilnic din datele de piață.
-                    </p>
                   </div>
                 </div>
               )}

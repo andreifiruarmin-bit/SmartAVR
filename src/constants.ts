@@ -31,11 +31,5 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
   GBP: '£',
   CHF: 'Fr',
   XAU: 'g',
+  AUR: 'g',
 };
-
-// API Endpoints
-export const GOLD_API_ENDPOINT = '/.netlify/functions/gold-price';
-export const BVB_API_ENDPOINT = '/.netlify/functions/stock-price';
-
-// Rates freshness
-export const RATES_STALE_HOURS = 24;

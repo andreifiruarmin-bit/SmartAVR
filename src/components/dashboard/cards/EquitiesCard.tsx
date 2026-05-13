@@ -1,132 +1,70 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { TrendingUp, Layers, FileText, ChevronRight } from 'lucide-react';
+import { Saving, SavingType, Currency } from '../../../types';
+import { formatCurrency, convertToRON, cn } from '../../../lib/utils';
 import { motion } from 'motion/react';
-import { Currency, Saving, SavingType } from '../../../types';
-import { formatCurrency } from '../../../lib/utils';
-import { Activity, EyeOff, Eye, TrendingUp, TrendingDown } from 'lucide-react';
-import { itemVariants } from '../types';
 
 interface EquitiesCardProps {
-  value: number;
-  displayCurrency: Currency;
   savings: Saving[];
-  isVisible: boolean;
-  onToggleVisibility: () => void;
+  rates: Record<string, number>;
+  displayCurrency: Currency;
+  onClick?: () => void;
 }
 
-export const EquitiesCard: React.FC<EquitiesCardProps> = ({
-  value,
-  displayCurrency,
-  savings,
-  isVisible,
-  onToggleVisibility
+export const EquitiesCard: React.FC<EquitiesCardProps> = ({ 
+  savings, 
+  rates, 
+  displayCurrency, 
+  onClick 
 }) => {
-
-  // Get unique symbols from stocks and ETFs
-  const equitiesSavings = savings.filter(s => s.type === SavingType.STOCKS || s.type === SavingType.ETF || s.type === SavingType.BONDS);
-  const symbols = [...new Set(equitiesSavings.map(s => (s as any).details?.symbol || s.name))];
-  const totalValue = equitiesSavings.reduce((sum, s) => sum + s.amount, 0);
-
-  // Calculate performance for each symbol
-  const symbolPerformance = symbols.map(symbol => {
-    const symbolSavings = equitiesSavings.filter(s => (s as any).details?.symbol === symbol || s.name === symbol);
-    const totalInvested = symbolSavings.reduce((sum, s) => sum + s.amount, 0);
-    const currentValue = symbolSavings.reduce((sum, s) => {
-      const currentPrice = (s as any).details?.currentPrice || 0;
-      const quantity = (s as any).details?.quantity || 0;
-      return sum + (currentPrice * quantity);
-    }, 0);
-    const avgAcquisitionPrice = symbolSavings.reduce((sum, s) => sum + ((s as any).details?.averageAcquisitionPrice || 0), 0) / symbolSavings.length;
-    const performance = avgAcquisitionPrice > 0 ? ((currentValue / totalInvested) - 1) * 100 : 0;
-
-    return {
-      symbol,
-      performance,
-      currentValue,
-      totalInvested
-    };
-  });
-
-  if (!isVisible) {
-    return (
-      <motion.div 
-        variants={itemVariants}
-        whileHover={{ scale: 1.02 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        className="bg-white dark:bg-gray-800 p-6 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm flex items-center justify-between group transition-all duration-500"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-500 dark:bg-indigo-900 rounded-2xl flex items-center justify-center">
-            <Activity className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <p className="text-sm font-black text-slate-900 dark:text-gray-100">Acțiuni & ETF</p>
-            <p className="text-xs text-slate-500 dark:text-gray-400">Ascuns</p>
-          </div>
-        </div>
-        <button 
-          data-dropdown-option="true"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleVisibility();
-          }}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-red-500 transition-all duration-200 text-slate-600 hover:text-red-100"
-          aria-label={isVisible ? 'Ascunde card' : 'Afișează card'}
-        >
-          <Eye size={18} />
-        </button>
-      </motion.div>
+  const totalValue = useMemo(() => {
+    const assets = savings.filter(s => 
+      s.type === SavingType.STOCKS || 
+      s.type === SavingType.ETF || 
+      s.type === SavingType.BONDS
     );
-  }
+    const sumRON = assets.reduce((acc, s) => acc + convertToRON(s.amount, s.currency, rates), 0);
+    return displayCurrency === 'RON' ? sumRON : sumRON / (rates[displayCurrency] || 1);
+  }, [savings, rates, displayCurrency]);
 
   return (
-    <motion.div
-      variants={itemVariants}
-      whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="bg-white dark:bg-gray-800 px-4 py-3 md:px-6 md:py-4 lg:p-8 rounded-[3rem] border border-slate-200 dark:border-gray-700 shadow-sm flex flex-col justify-between relative group transition-all duration-500 overflow-hidden"
+    <motion.div 
+      whileHover={{ y: -5 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between relative group transition-all duration-300 cursor-pointer hover:border-indigo-500 hover:shadow-xl hover:shadow-indigo-500/5"
     >
-      <div className="flex justify-between items-start z-10">
-        <div className="p-3 bg-indigo-500 dark:bg-indigo-900 rounded-2xl group-hover:ring-4 group-hover:ring-indigo-500/20 transition-all duration-500">
-          <Activity className="w-6 h-6 text-white" />
+      <div className="flex justify-between items-start mb-4">
+        <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 rounded-2xl group-hover:bg-indigo-500 group-hover:text-white transition-all duration-500">
+          <TrendingUp className="w-6 h-6" />
         </div>
         <div className="text-right">
-          <div className="flex items-center justify-end gap-2 mb-1">
-            <button
-              data-dropdown-option="true"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleVisibility();
-              }}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 hover:bg-red-500 transition-all duration-200 text-slate-600 hover:text-red-100"
-              aria-label="Ascunde card"
-            >
-              <EyeOff size={18} />
-            </button>
+          <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Piață de capital</p>
+          <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            {formatCurrency(totalValue, displayCurrency)}
+          </h3>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center gap-3">
+          <div className="flex -space-x-2">
+            <div className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-slate-800 flex items-center justify-center border-2 border-white dark:border-slate-900">
+              <TrendingUp className="w-2.5 h-2.5 text-indigo-500" />
+            </div>
+            <div className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-slate-800 flex items-center justify-center border-2 border-white dark:border-slate-900">
+              <Layers className="w-2.5 h-2.5 text-indigo-500" />
+            </div>
+            <div className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-slate-800 flex items-center justify-center border-2 border-white dark:border-slate-900">
+              <FileText className="w-2.5 h-2.5 text-indigo-500" />
+            </div>
           </div>
-          <p className="text-slate-600 text-[10px] font-black uppercase tracking-widest">Acțiuni & ETF & Titluri de Stat</p>
+          <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Mixt</p>
         </div>
-      </div>
-
-      <div className="z-10">
-        <div className="mb-4">
-          <p className="text-[9px] font-black uppercase tracking-wider text-slate-600 mb-1">📈 Acțiuni & ETF & Titluri de Stat</p>
-          <p className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-            {formatCurrency(totalValue, 'RON')}
-          </p>
-          <p className="text-xs text-slate-600 mt-1">
-            {equitiesSavings.length} active{equitiesSavings.length !== 1 ? ' de investiții' : ' de investiție'}
-          </p>
+        <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+          <span className="text-[10px] font-black uppercase">Piață</span>
+          <ChevronRight className="w-3 h-3" />
         </div>
-
-        <p className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-          {formatCurrency(value, displayCurrency)}
-          <span className="text-[10px] font-normal text-slate-600 ml-2">Valoare în {displayCurrency}</span>
-        </p>
-      </div>
-
-      <div className="flex items-center gap-2 mt-6 z-10">
-        <div className="w-2 h-2 rounded-full bg-white" />
-        <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Creștere pe termen lung</p>
       </div>
     </motion.div>
   );

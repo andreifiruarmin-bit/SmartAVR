@@ -4,32 +4,23 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Wallet, PieChart as PieChartIcon, List, TrendingUp, Landmark, Coins, Layers, FileText, Home, PlusCircle, ArrowUpRight, DollarSign, LogOut, ChevronLeft } from 'lucide-react';
+import { Sun, Moon, Plus, Wallet, PieChart as PieChartIcon, List, TrendingUp, Landmark, Coins, Layers, FileText, Home, PlusCircle, ArrowUpRight, DollarSign, LogOut } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Saving, SavingType, Currency } from './types';
 import { DEFAULT_RATES, BASE_CURRENCY } from './constants';
 import { cn, formatCurrency, convertToRON, fetchLiveRates } from './lib/utils';
-import { useDarkMode } from './hooks/useDarkMode';
-import { Dashboard } from './components/dashboard';
+import { Dashboard } from './components/dashboard/Dashboard';
 import { SavingsList } from './components/SavingsList';
 import { AddSavingModal } from './components/AddSavingModal';
+import { DashboardSettingsModal } from './components/dashboard/DashboardSettingsModal';
+import { LegalModal } from './components/LegalModal';
 import { Auth } from './components/Auth';
 import { Navigation } from './components/Navigation';
-import { Footer } from './components/Footer';
 import { motion, AnimatePresence } from 'motion/react';
-import TermsAndConditions from './pages/TermsAndConditions';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import { BankDepositsDetail } from './pages/BankDepositsDetail';
-import { CashReserveDetail } from './pages/CashReserveDetail';
-import { GoldDetail } from './pages/GoldDetail';
-import { EquitiesDetail } from './pages/EquitiesDetail';
+import { Settings } from 'lucide-react';
 
 export default function App() {
-  const { isDark, toggleDark } = useDarkMode();
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'list' | 'terms' | 'privacy' 
-             | 'detail-deposits' | 'detail-cash' 
-             | 'detail-gold' | 'detail-equities'>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [savings, setSavings] = useState<Saving[]>([]);
@@ -37,14 +28,58 @@ export default function App() {
   const [rates, setRates] = useState<Record<string, number>>(DEFAULT_RATES);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'terms' | 'privacy' | 'gdpr' }>({ isOpen: false, type: 'terms' });
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
   const [listFilter, setListFilter] = useState<{ type?: SavingType; currency?: Currency } | null>(null);
-  const [displayCurrency, setDisplayCurrency] = useState<Currency>('RON');
+  const [cardVisibility, setCardVisibility] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dashboard_visibility');
+      return saved ? JSON.parse(saved) : {
+        summary: true,
+        evolution: true,
+        cash: true,
+        deposits: true,
+        equities: true,
+        gold: true,
+        rent: true,
+        analysis: true
+      };
+    }
+    return { summary: true, evolution: true, cash: true, deposits: true, equities: true, gold: true, rent: true, analysis: true };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_visibility', JSON.stringify(cardVisibility));
+  }, [cardVisibility]);
+
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
+  const toggleDarkMode = () => setIsDark(!isDark);
 
   const handleEdit = (saving: Saving) => {
     setEditingSaving(saving);
     setIsModalOpen(true);
-    setCurrentPage('dashboard');
+  };
+
+  const openLegal = (type: 'terms' | 'privacy' | 'gdpr') => {
+    setLegalModal({ isOpen: true, type });
   };
 
   // Handle Auth
@@ -196,7 +231,8 @@ export default function App() {
         weightedDepositYieldSum += ronValue * (yieldRate / 100);
       }
 
-      byCurrency[s.currency] = (byCurrency[s.currency] || 0) + ronValue;
+      const currencyLabel = s.type === SavingType.GOLD ? 'AUR' : s.currency;
+      byCurrency[currencyLabel] = (byCurrency[currencyLabel] || 0) + ronValue;
       byType[s.type] = (byType[s.type] || 0) + ronValue;
     });
 
@@ -275,129 +311,24 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-40">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <motion.div 
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full mb-4"
+          className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full"
         />
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">Sincronizare active...</p>
       </div>
     );
   }
+
   if (!user) {
-    return <Auth />;
-  }
-  if (savings.length === 0) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center justify-center py-24 text-center px-4"
-      >
-        <div className="w-24 h-24 bg-white rounded-[2.5rem] shadow-xl border border-slate-100 flex items-center justify-center mb-8 animate-bounce transition-all duration-1000">
-          <Wallet className="w-12 h-12 text-primary" />
-        </div>
-        <h2 className="text-2xl font-black text-slate-900 mb-3 tracking-tight uppercase">Încă nu ai economii</h2>
-        <p className="text-slate-500 max-w-sm font-medium leading-relaxed">
-          Planifică-ți viitorul financiar adăugând primul tău depozit sau titlu de stat chiar acum.
-        </p>
-      </motion.div>
-    );
+    return <Auth isDark={isDark} onToggleDark={toggleDarkMode} />;
   }
 
-  // Render based on current page
-  if (currentPage === 'terms') {
-    return <TermsAndConditions />;
-  }
-
-  if (currentPage === 'privacy') {
-    return <PrivacyPolicy />;
-  }
-
-  if (currentPage === 'detail-deposits') {
-    return (
-      <motion.div
-        initial={{opacity:0, x:30}}
-        animate={{opacity:1, x:0}}
-        exit={{opacity:0, x:-30}}
-        transition={{duration:0.25}}
-        className="min-h-screen bg-slate-50 pb-24"
-      >
-        <BankDepositsDetail
-          savings={savings}
-          rates={rates}
-          displayCurrency={displayCurrency}
-          onBack={() => setCurrentPage('dashboard')}
-          onEdit={handleEdit}
-          onDelete={deleteSaving}
-        />
-      </motion.div>
-    );
-  }
-
-  if (currentPage === 'detail-cash') {
-    return (
-      <motion.div
-        initial={{opacity:0, x:30}}
-        animate={{opacity:1, x:0}}
-        exit={{opacity:0, x:-30}}
-        transition={{duration:0.25}}
-        className="min-h-screen bg-slate-50 pb-24"
-      >
-        <CashReserveDetail
-          savings={savings}
-          rates={rates}
-          displayCurrency={displayCurrency}
-          onBack={() => setCurrentPage('dashboard')}
-          onEdit={handleEdit}
-          onDelete={deleteSaving}
-        />
-      </motion.div>
-    );
-  }
-
-  if (currentPage === 'detail-gold') {
-    return (
-      <motion.div 
-        initial={{opacity:0, x:30}} 
-        animate={{opacity:1, x:0}} 
-        exit={{opacity:0, x:-30}} 
-        transition={{duration:0.25}}
-        className="min-h-screen bg-slate-50 pb-24"
-      >
-        <GoldDetail 
-          savings={savings} 
-          rates={rates} 
-          onBack={() => setCurrentPage('dashboard')} 
-        />
-      </motion.div>
-    );
-  }
-
-  if (currentPage === 'detail-equities') {
-    return (
-      <motion.div
-        initial={{opacity:0, x:30}}
-        animate={{opacity:1, x:0}}
-        exit={{opacity:0, x:-30}}
-        transition={{duration:0.25}}
-        className="min-h-screen bg-slate-50 pb-24"
-      >
-        <EquitiesDetail
-          savings={savings}
-          displayCurrency={displayCurrency}
-          rates={rates}
-          onBack={() => setCurrentPage('dashboard')}
-          onEdit={handleEdit}
-          onDelete={deleteSaving}
-        />
-      </motion.div>
-    );
-  }
+  const userSavingTypes = Array.from(new Set(savings.map(s => s.type)));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-24 md:pb-12 relative overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-24 md:pb-12 relative overflow-x-hidden transition-colors dark:bg-black dark:text-slate-200">
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-primary/3 rounded-full blur-[120px]" />
@@ -405,33 +336,51 @@ export default function App() {
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 w-full bg-white/70 backdrop-blur-xl border-b border-slate-200/60">
+      <header className="sticky top-0 z-40 w-full bg-white/70 backdrop-blur-xl border-b border-slate-200/60 transition-colors dark:bg-slate-900/70 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary/30">
               S
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tighter text-slate-900">
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
               Smart<span className="text-primary">AVR</span>
             </h1>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-3 bg-white p-1.5 pr-4 rounded-full shadow-sm border border-slate-200">
-              <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700">
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2 md:p-2.5 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700 shadow-sm md:shadow-none"
+                title="Configurare Dashboard"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={toggleDarkMode}
+                className="p-2 md:p-2.5 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700"
+                aria-label="Toggle theme"
+              >
+                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+            </div>
+            
+            <div className="hidden lg:flex items-center gap-3 bg-white dark:bg-slate-800 p-1.5 pr-4 rounded-full shadow-sm border border-slate-200 dark:border-slate-700">
+              <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center overflow-hidden">
                 {user.user_metadata?.avatar_url ? (
                   <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <DollarSign className="w-4 h-4 text-slate-500" />
+                  <DollarSign className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 )}
               </div>
               <div className="text-sm">
-                <p className="font-semibold leading-none">{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Utilizator'}</p>
+                <p className="font-semibold leading-none text-slate-900 dark:text-white">{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Utilizator'}</p>
                 <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Profil Premium</p>
               </div>
               <button 
                 onClick={() => supabase.auth.signOut()}
-                className="p-1.5 hover:bg-slate-50 rounded-full text-slate-400 hover:text-red-500 transition-colors"
+                className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-full text-slate-400 hover:text-red-500 transition-colors ml-2"
                 title="Deconectare"
               >
                 <LogOut className="w-4 h-4" />
@@ -442,15 +391,15 @@ export default function App() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full text-sm font-bold hover:opacity-90 transition-colors shadow-lg shadow-primary/20"
+              className="flex items-center gap-2 bg-primary text-white px-4 md:px-6 py-2.5 rounded-xl md:rounded-full text-sm font-bold hover:opacity-90 transition-colors shadow-lg shadow-primary/20"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Adaugă Active</span>
+              <span className="hidden sm:inline">Adaugă</span>
             </motion.button>
 
             <button 
               onClick={() => supabase.auth.signOut()}
-              className="md:hidden p-2 bg-white border border-slate-200 rounded-full text-slate-400"
+              className="lg:hidden p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-400"
             >
               <LogOut className="w-5 h-5" />
             </button>
@@ -458,7 +407,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-32">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-32 relative z-10">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' ? (
             <motion.div
@@ -469,14 +418,17 @@ export default function App() {
               transition={{ duration: 0.2 }}
             >
               <Dashboard 
+                isDark={isDark}
                 savings={savings} 
                 totals={totals}
                 rates={rates}
                 onSliceClick={handleDashboardFilter}
+                onEdit={handleEdit}
+                onDelete={deleteSaving}
                 loading={savingsLoading}
-                displayCurrency={displayCurrency}
-                onDisplayCurrencyChange={setDisplayCurrency}
-                onNavigate={(page) => setCurrentPage(page as any)}
+                cardVisibility={cardVisibility}
+                setCardVisibility={setCardVisibility}
+                onOpenLegal={openLegal}
               />
             </motion.div>
           ) : (
@@ -502,10 +454,8 @@ export default function App() {
       <Navigation 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
-        onAddClick={() => setIsModalOpen(true)}
+        onAddClick={() => setIsModalOpen(true)} 
       />
-
-      <Footer setCurrentPage={setCurrentPage} />
 
       <AddSavingModal
         isOpen={isModalOpen}
@@ -515,6 +465,20 @@ export default function App() {
         }}
         onAdd={addSaving}
         editingSaving={editingSaving}
+      />
+
+      <DashboardSettingsModal 
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        visibility={cardVisibility}
+        setVisibility={setCardVisibility}
+        availableTypes={userSavingTypes as SavingType[]}
+      />
+
+      <LegalModal 
+        isOpen={legalModal.isOpen}
+        type={legalModal.type}
+        onClose={() => setLegalModal(prev => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

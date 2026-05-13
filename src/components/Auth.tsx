@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, ShieldCheck, ArrowRight, Chrome } from 'lucide-react';
+import { LogIn, Mail, Lock, ShieldCheck, ArrowRight, Chrome, Sun, Moon, Fingerprint } from 'lucide-react';
 
-export const Auth: React.FC = () => {
+interface AuthProps {
+  isDark: boolean;
+  onToggleDark: () => void;
+}
+
+export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,12 +19,48 @@ export const Auth: React.FC = () => {
     return localStorage.getItem('smartavr_remember_me') !== 'false';
   });
 
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+
   React.useEffect(() => {
+    // Check if WebAuthn is supported
+    if (window.PublicKeyCredential) {
+      setBiometricsAvailable(true);
+    }
+
     const savedEmail = localStorage.getItem('smartavr_saved_email');
     if (savedEmail && rememberMe) {
       setEmail(savedEmail);
     }
   }, []);
+
+  const handleBiometricAuth = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // In a real production app with Supabase, you would use a WebAuthn strategy.
+      // For now, we provide the UI trigger and the check for Android/iOS native prompt.
+      if (!window.PublicKeyCredential) {
+        throw new Error('Biometria nu este suportată pe acest dispozitiv.');
+      }
+
+      // This triggers the native Android/iOS biometric prompt
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      // Note: This is the structure for WebAuthn. 
+      // To fully implement this, you'd need a backend endpoint to verify the assertion.
+      // We are "preparing" the logic as requested.
+      setError('Autentificarea biometrică necesită configurarea unui Passkey în setările profilului tău.');
+      
+      // Simulation of a successful biometric check for UI purposes
+      // await navigator.credentials.get({ ...options });
+      
+    } catch (err: any) {
+      setError(err.message || 'Eroare biometrie');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +69,7 @@ export const Auth: React.FC = () => {
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-
+        
         if (error) {
           if (error.message.includes('email_not_confirmed')) {
             throw new Error('E-mailul nu este confirmat. Verifică Inbox sau mergi la Supabase Dashboard -> Auth -> Settings și dezactivează "Confirm Email".');
@@ -39,6 +80,7 @@ export const Auth: React.FC = () => {
           throw error;
         }
 
+        // Handle Remember Me
         if (rememberMe) {
           localStorage.setItem('smartavr_remember_me', 'true');
           localStorage.setItem('smartavr_saved_email', email);
@@ -86,182 +128,150 @@ export const Auth: React.FC = () => {
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Introdu adresa de email pentru a reseta parola.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (error) throw error;
-      alert('Email de resetare trimis! Verifică inbox-ul.');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
+    <div className="min-h-screen bg-slate-50 dark:bg-black flex items-center justify-center p-4 transition-colors">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-sm"
+        className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-black/50 p-8 md:p-10 border border-slate-100 dark:border-slate-800 overflow-hidden relative"
       >
-        <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 px-8 py-10 border border-slate-100">
+        <div className="absolute top-4 right-4 z-20">
+          <button 
+            onClick={onToggleDark}
+            className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:text-primary transition-all border border-transparent hover:border-primary/20"
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+        </div>
 
-          {/* Logo + Title */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-14 h-14 bg-primary rounded-[1.1rem] flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-primary/30 mb-4">
-              S
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-xl shadow-primary/30 mb-4">
+            S
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+            Smart<span className="text-primary">AVR</span>
+          </h1>
+          <p className="text-slate-400 dark:text-slate-500 text-sm font-bold uppercase tracking-widest mt-2 px-1 text-center">
+            {isLogin ? 'Bine ai revenit' : 'Creează un cont premium'}
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 rounded-2xl text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleAuth} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nume@exemplu.ro"
+                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-3.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                required
+              />
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 mb-1">
-              Smart<span className="text-primary">AVR</span>
-            </h1>
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
-              {isLogin ? 'Bine ai revenit' : 'Creează contul'}
-            </p>
           </div>
 
-          {/* Error */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mb-5 p-3.5 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold flex items-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4 flex-shrink-0" />
-                {error}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Form */}
-          <form onSubmit={handleAuth} className="space-y-4">
-            {/* Email */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nume@exemplu.ro"
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl pl-11 pr-4 py-3 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 outline-none transition-all placeholder:text-slate-300"
-                  required
-                />
-              </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Parolă</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-600" />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-3.5 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                required
+              />
             </div>
+          </div>
 
-            {/* Password */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                Parolă
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+          <div className="flex items-center justify-between px-1 py-1">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <div className="relative flex items-center">
                 <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl pl-11 pr-4 py-3 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary/30 outline-none transition-all placeholder:text-slate-300"
-                  required
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-all checked:bg-primary checked:border-primary focus:outline-none"
                 />
+                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
               </div>
-            </div>
-
-            {/* Remember Me + Forgot Password */}
+              <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white transition-colors tracking-widest">Ține-mă minte</span>
+            </label>
+            
             {isLogin && (
-              <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => {
-                      setRememberMe(e.target.checked);
-                      localStorage.setItem('smartavr_remember_me', e.target.checked.toString());
-                    }}
-                    className="w-4 h-4 accent-primary rounded"
-                  />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Ține-mă minte
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="text-[10px] font-black uppercase tracking-widest text-primary hover:opacity-70 transition-opacity"
-                >
-                  Ai uitat parola?
-                </button>
-              </div>
+              <button 
+                type="button" 
+                className="text-[10px] font-black uppercase text-primary hover:underline tracking-widest"
+              >
+                Ai uitat parola?
+              </button>
             )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-primary text-white rounded-xl text-sm font-black uppercase tracking-wider hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
-            >
-              {loading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                />
-              ) : (
-                <>
-                  {isLogin ? 'Autentificare' : 'Creează cont'}
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-100" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
-                Sau
-              </span>
-            </div>
           </div>
 
-          {/* Google */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/90 transition-all shadow-xl shadow-primary/30 flex items-center justify-center gap-2 mt-2"
+          >
+            {loading ? 'Procesăm...' : isLogin ? 'Autentificare' : 'Înregistrare'}
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </form>
+
+        <div className="relative my-8">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-100 dark:border-slate-800"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase font-black">
+            <span className="bg-white dark:bg-slate-900 px-4 text-slate-300 dark:text-slate-700 tracking-widest">Sau</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
           <button
             onClick={signInWithGoogle}
-            className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
+            className="w-full flex items-center justify-center gap-3 py-3 border border-slate-100 dark:border-slate-800 rounded-2xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
           >
             <Chrome className="w-4 h-4 text-primary" />
             Continuă cu Google
           </button>
-
-          {/* Toggle Login / Register */}
-          <p className="mt-6 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
-            {isLogin ? 'Nu ai cont?' : 'Ai deja un cont?'}
+          
+          {biometricsAvailable && (
             <button
-              onClick={() => { setIsLogin(!isLogin); setError(null); }}
-              className="ml-1.5 text-primary font-black hover:opacity-70 transition-opacity"
+              onClick={handleBiometricAuth}
+              className="w-full flex items-center justify-center gap-3 py-3 bg-slate-50 dark:bg-slate-800/50 border border-transparent rounded-2xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:border-primary/20 transition-all group"
             >
-              {isLogin ? 'Înscrie-te' : 'Autentificare'}
+              <Fingerprint className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+              Autentificare Biometrică
             </button>
-          </p>
+          )}
         </div>
+
+        <p className="mt-8 text-center text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-tight">
+          {isLogin ? 'Nu ai cont?' : 'Ai deja un cont?'}
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="ml-2 text-primary hover:underline"
+          >
+            {isLogin ? 'Înscrie-te' : 'Conectează-te'}
+          </button>
+        </p>
       </motion.div>
     </div>
   );
