@@ -63,23 +63,16 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-
-    const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
-
+    const INACTIVITY_LIMIT = 30 * 60 * 1000;
     const updateActivity = () => setLastActivity(Date.now());
-
-    // User activity events to track
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
     events.forEach(name => document.addEventListener(name, updateActivity));
-
     const interval = setInterval(() => {
       const now = Date.now();
       if (now - lastActivity > INACTIVITY_LIMIT) {
-        console.log('Inactivity timeout reached. Logging out...');
         supabase.auth.signOut();
       }
-    }, 60000); // Check every minute
-
+    }, 60000);
     return () => {
       events.forEach(name => document.removeEventListener(name, updateActivity));
       clearInterval(interval);
@@ -97,33 +90,27 @@ export default function App() {
     setLegalModal({ isOpen: true, type });
   };
 
-  // Handle Auth
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setAuthLoading(false);
       return;
     }
-    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch Live Rates
   useEffect(() => {
     fetchLiveRates().then(newRates => {
       if (newRates) setRates(newRates);
     });
   }, []);
 
-  // Sync Savings from Supabase
   useEffect(() => {
     if (!user) {
       setSavings([]);
@@ -140,47 +127,26 @@ export default function App() {
       if (error) {
         console.error('Supabase fetch error:', error);
       } else {
-        const mappedData = data.map((item: any) => {
-          return {
-            ...item,
-            interestRate: item.interest_rate,
-            maturityDate: item.maturity_date,
-            isCapitalized: item.capitalized,
-            createdAt: new Date(item.created_at).getTime(),
-            ...(item.details || {})
-          };
-        });
+        const mappedData = data.map((item: any) => ({
+          ...item,
+          interestRate: item.interest_rate,
+          maturityDate: item.maturity_date,
+          isCapitalized: item.capitalized,
+          createdAt: new Date(item.created_at).getTime(),
+          ...(item.details || {})
+        }));
         setSavings(mappedData as unknown as Saving[]);
       }
       setSavingsLoading(false);
     };
 
     fetchSavings();
-
-    // Real-time subscription
-    const channel = supabase
-      .channel('savings-changes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'savings_products', 
-        filter: `user_id=eq.${user.id}` 
-      }, () => {
-        fetchSavings();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [user]);
 
   const addSaving = async (newSaving: any) => {
     if (!user) return;
     try {
-      // Map frontend fields to Supabase schema based on user standardization
       const payload: any = {
-        id: newSaving.id,
         user_id: user.id,
         name: newSaving.name,
         type: newSaving.type,
@@ -199,14 +165,37 @@ export default function App() {
         }
       };
 
-      const { error } = await supabase
+      if (editingSaving) {
+        payload.id = editingSaving.id;
+      }
+
+      const { data, error } = await supabase
         .from('savings_products')
-        .upsert(payload);
+        .upsert(payload)
+        .select()
+        .single();
       
       if (error) throw error;
+
+      const mappedData = {
+        ...data,
+        interestRate: data.interest_rate,
+        maturityDate: data.maturity_date,
+        isCapitalized: data.capitalized,
+        createdAt: new Date(data.created_at).getTime(),
+        ...(data.details || {})
+      } as unknown as Saving;
+
+      if (editingSaving) {
+        setSavings(prev => prev.map(s => s.id === editingSaving.id ? mappedData : s));
+      } else {
+        setSavings(prev => [mappedData, ...prev]);
+      }
+
       setIsModalOpen(false);
+      setEditingSaving(null);
     } catch (error) {
-      console.error('Failed to add saving:', error);
+      console.error('Failed to save:', error);
       alert('Eroare la salvare: ' + (error instanceof Error ? error.message : 'Eroare necunoscută'));
     }
   };
@@ -221,6 +210,7 @@ export default function App() {
         .eq('user_id', user.id);
       
       if (error) throw error;
+      setSavings(prev => prev.filter(s => s.id !== id));
     } catch (error) {
       console.error('Failed to delete saving:', error);
     }
@@ -231,36 +221,27 @@ export default function App() {
     let weightedYieldSum = 0;
     let totalDepositsBase = 0;
     let weightedDepositYieldSum = 0;
-
     const byCurrency: Record<string, number> = {};
     const byType: Record<string, number> = {};
 
     savings.forEach(s => {
       const ronValue = convertToRON(s.amount, s.currency, rates);
       totalInBase += ronValue;
-      
       const yieldRate = (s as any).interestRate || 0;
       weightedYieldSum += ronValue * (yieldRate / 100);
-
       if (s.type === SavingType.DEPOSIT || s.type === SavingType.BONDS) {
         totalDepositsBase += ronValue;
         weightedDepositYieldSum += ronValue * (yieldRate / 100);
       }
-
       const currencyLabel = s.type === SavingType.GOLD ? 'AUR' : s.currency;
       byCurrency[currencyLabel] = (byCurrency[currencyLabel] || 0) + ronValue;
       byType[s.type] = (byType[s.type] || 0) + ronValue;
     });
 
-    const averageYield = totalInBase > 0 ? (weightedYieldSum / totalInBase) * 100 : 0;
-    const averageDepositYield = totalDepositsBase > 0 ? (weightedDepositYieldSum / totalDepositsBase) * 100 : 0;
-
     return { 
-      totalInBase, 
-      byCurrency, 
-      byType, 
-      averageYield,
-      averageDepositYield,
+      totalInBase, byCurrency, byType, 
+      averageYield: totalInBase > 0 ? (weightedYieldSum / totalInBase) * 100 : 0,
+      averageDepositYield: totalDepositsBase > 0 ? (weightedDepositYieldSum / totalDepositsBase) * 100 : 0,
       totalDepositsBase
     };
   }, [savings, rates]);
@@ -281,274 +262,53 @@ export default function App() {
 
   const clearFilters = () => setListFilter(null);
 
-  if (!isSupabaseConfigured) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
-        <div className="max-w-md bg-white p-10 rounded-[3rem] border border-slate-200 shadow-2xl">
-          <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-amber-100">
-            <PlusCircle className="w-8 h-8" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-4 uppercase tracking-tight">Supabase nu este configurat</h2>
-          <p className="text-slate-500 font-bold text-sm leading-relaxed mb-8">
-            Pentru a folosi SmartAVR, trebuie să configurezi variabilele de mediu <span className="text-primary">VITE_SUPABASE_URL</span> și <span className="text-primary">VITE_SUPABASE_ANON_KEY</span>.
-          </p>
-          <div className="bg-slate-50 p-6 rounded-2xl text-left font-mono text-[10px] text-slate-400 space-y-3 border border-slate-100">
-            <div>
-              <p className="text-slate-900 font-black mb-1 flex items-center gap-2">
-                <span className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center text-[8px]">1</span>
-                CONEXIUNE BAZĂ DE DATE
-              </p>
-              <p>• Mergi la Settings &rarr; API</p>
-              <p>• Project URL (fără /rest/v1 la final)</p>
-              <p>• anon public key</p>
-            </div>
-            <div>
-              <p className="text-slate-900 font-black mb-1 flex items-center gap-2">
-                <span className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center text-[8px]">2</span>
-                CONFIGURARE AUTH (SUPABASE)
-              </p>
-              <p>• Authentication &rarr; Providers &rarr; Activează Google</p>
-              <p>• Authentication &rarr; Settings &rarr; Dezactivează "Confirm Email"</p>
-            </div>
-            <div>
-              <p className="text-slate-900 font-black mb-1 flex items-center gap-2">
-                <span className="w-4 h-4 bg-slate-900 text-white rounded-full flex items-center justify-center text-[8px]">3</span>
-                DEPLOY PE NETLIFY
-              </p>
-              <p>• Site Settings &rarr; Environment variables</p>
-              <p>• Adaugă VITE_SUPABASE_URL și VITE_SUPABASE_ANON_KEY</p>
-              <p>• Mergi la Deploys &rarr; Trigger deploy &rarr; Clear cache and deploy</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full"
-        />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Auth isDark={isDark} onToggleDark={toggleDarkMode} />;
-  }
-
-  const userSavingTypes = Array.from(new Set(savings.map(s => s.type)));
+  if (authLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full" /></div>;
+  if (!user) return <Auth isDark={isDark} onToggleDark={toggleDarkMode} />;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-10 relative overflow-x-hidden transition-colors dark:bg-black dark:text-slate-200">
-      {/* Background Decor */}
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-primary/3 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[20%] left-[-10%] w-[30%] h-[30%] bg-indigo-500/5 rounded-full blur-[100px]" />
-      </div>
-
-      {/* Header */}
       <header className="sticky top-0 z-40 w-full bg-white/70 backdrop-blur-xl border-b border-slate-200/60 transition-colors dark:bg-slate-900/70 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary/30">
-              S
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Smart<span className="text-primary">AVR</span>
-            </h1>
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary/30">S</div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Smart<span className="text-primary">AVR</span></h1>
           </div>
-          
           <div className="flex items-center gap-2 md:gap-4">
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700">
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="p-2 md:p-2.5 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700 shadow-sm md:shadow-none"
-                title="Configurare Dashboard"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-              
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 md:p-2.5 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700"
-                aria-label="Toggle theme"
-              >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-              
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="p-2 md:p-2.5 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700 shadow-sm md:shadow-none"
-                title="Adaugă Activ"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+              <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700"><Settings className="w-5 h-5" /></button>
+              <button onClick={toggleDarkMode} className="p-2 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700">{isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
+              <button onClick={() => setIsModalOpen(true)} className="p-2 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700"><Plus className="w-5 h-5" /></button>
             </div>
-            
-            <div className="hidden lg:flex items-center gap-3 bg-white dark:bg-slate-800 p-1.5 pr-4 rounded-full shadow-sm border border-slate-200 dark:border-slate-700">
-              <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center overflow-hidden">
-                {user.user_metadata?.avatar_url ? (
-                  <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <DollarSign className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                )}
-              </div>
-              <div className="text-sm">
-                <p className="font-semibold leading-none text-slate-900 dark:text-white">{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Utilizator'}</p>
-                <p className="text-[10px] text-slate-500 uppercase font-bold mt-1">Profil Premium</p>
-              </div>
-              <button 
-                onClick={() => supabase.auth.signOut()}
-                className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-full text-slate-400 hover:text-red-500 transition-colors ml-2"
-                aria-label="Deconectare"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-            
             <motion.button
-              whileHover={typeof window !== 'undefined' && window.innerWidth > 768 ? { scale: 1.05 } : undefined}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab(activeTab === 'dashboard' ? 'list' : 'dashboard')}
-              className="flex items-center gap-2 bg-slate-900 dark:bg-primary text-white px-4 md:px-6 py-2.5 rounded-xl md:rounded-full text-sm font-bold md:hover:opacity-90 transition-colors shadow-lg shadow-slate-900/20 dark:shadow-primary/20"
+              className="flex items-center gap-2 bg-slate-900 dark:bg-primary text-white px-4 md:px-6 py-2.5 rounded-xl md:rounded-full text-sm font-bold shadow-lg"
             >
-              {activeTab === 'dashboard' ? (
-                <>
-                  <List className="w-5 h-5" />
-                  <span className="hidden md:inline">Listă Active</span>
-                </>
-              ) : (
-                <>
-                  <PieChartIcon className="w-5 h-5" />
-                  <span className="hidden md:inline">Dashboard</span>
-                </>
-              )}
+              {activeTab === 'dashboard' ? <><List className="w-5 h-5" /><span className="hidden md:inline">Listă Active</span></> : <><PieChartIcon className="w-5 h-5" /><span className="hidden md:inline">Dashboard</span></>}
             </motion.button>
-
-            <button 
-              onClick={() => supabase.auth.signOut()}
-              className="lg:hidden p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-400"
-              aria-label="Deconectare"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+            <button onClick={() => supabase.auth.signOut()} className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-400"><LogOut className="w-5 h-5" /></button>
           </div>
         </div>
       </header>
 
-      {maturityNotifications.length > 0 && (
-        <div className="space-y-2 px-4 pt-4">
-          {maturityNotifications
-            .filter(n => !dismissedNotifications.has(n.deposit.id))
-            .map(notification => (
-              <div
-                key={notification.deposit.id}
-                className={cn(
-                  "rounded-2xl p-4 shadow-lg border relative",
-                  notification.type === 'matured'
-                    ? "bg-amber-500/10 border-amber-500/30"
-                    : "bg-blue-500/10 border-blue-500/30"
-                )}
-              >
-                <button
-                  onClick={() => setDismissedNotifications(prev => new Set([...prev, notification.deposit.id]))}
-                  className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                >
-                  <Plus className="w-4 h-4 rotate-45" />
-                </button>
-                <h3 className="text-sm font-bold mb-1">
-                  {notification.type === 'matured' ? '⚠️ Depozit ajuns la scadență' : '📅 Scadență apropiată'}
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  {notification.type === 'matured'
-                    ? `Depozitul "${notification.deposit.name}" a ajuns la scadență. Dobânda netă estimată: ${formatCurrency(notification.netInterest, notification.deposit.currency)}. Suma este disponibilă în rezerva cash.`
-                    : `Depozitul "${notification.deposit.name}" expiră în ${notification.daysUntilMaturity} zile. Dobânda netă estimată: ${formatCurrency(notification.netInterest, notification.deposit.currency)}.`
-                  }
-                </p>
-              </div>
-            ))}
-        </div>
-      )}
-
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-10 relative z-10">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' ? (
-            <motion.div
-              key="dashboard"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Dashboard 
-                isDark={isDark}
-                savings={savings} 
-                totals={totals}
-                rates={rates}
-                onSliceClick={handleDashboardFilter}
-                onEdit={handleEdit}
-                onDelete={deleteSaving}
-                loading={savingsLoading}
-                cardVisibility={cardVisibility}
-                setCardVisibility={setCardVisibility}
-                onOpenLegal={openLegal}
-              />
+            <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <Dashboard isDark={isDark} savings={savings} totals={totals} rates={rates} onSliceClick={handleDashboardFilter} onEdit={handleEdit} onDelete={deleteSaving} loading={savingsLoading} cardVisibility={cardVisibility} setCardVisibility={setCardVisibility} onOpenLegal={openLegal} />
             </motion.div>
           ) : (
-            <motion.div
-              key="list"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              <SavingsList 
-                savings={filteredSavings} 
-                onDelete={deleteSaving}
-                onEdit={handleEdit}
-                onViewDetails={setDetailSaving}
-                filter={listFilter}
-                onClearFilter={clearFilters}
-              />
+            <motion.div key="list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <SavingsList savings={filteredSavings} onDelete={deleteSaving} onEdit={handleEdit} onViewDetails={setDetailSaving} filter={listFilter} onClearFilter={clearFilters} />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-
-      <AddSavingModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingSaving(null);
-        }}
-        onAdd={addSaving}
-        editingSaving={editingSaving}
-      />
-
-      <DashboardSettingsModal 
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        visibility={cardVisibility}
-        setVisibility={setCardVisibility}
-        availableTypes={userSavingTypes as SavingType[]}
-      />
-
-      <LegalModal 
-        isOpen={legalModal.isOpen}
-        type={legalModal.type}
-        onClose={() => setLegalModal(prev => ({ ...prev, isOpen: false }))}
-      />
-
-      <SavingDetailModal
-        saving={detailSaving}
-        onClose={() => setDetailSaving(null)}
-      />
+      <AddSavingModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingSaving(null); }} onAdd={addSaving} editingSaving={editingSaving} />
+      <DashboardSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} visibility={cardVisibility} setVisibility={setCardVisibility} availableTypes={Array.from(new Set(savings.map(s => s.type))) as SavingType[]} />
+      <LegalModal isOpen={legalModal.isOpen} type={legalModal.type} onClose={() => setLegalModal(prev => ({ ...prev, isOpen: false }))} />
+      <SavingDetailModal saving={detailSaving} onClose={() => setDetailSaving(null)} />
     </div>
   );
 }
