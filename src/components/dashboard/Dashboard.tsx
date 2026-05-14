@@ -17,6 +17,7 @@ import { DepositsSubMenu } from './submenus/DepositsSubMenu';
 import { EquitiesSubMenu } from './submenus/EquitiesSubMenu';
 import { GoldSubMenu } from './submenus/GoldSubMenu';
 import { RentSubMenu } from './submenus/RentSubMenu';
+import { SavingDetailModal } from '../SavingDetailModal';
 import { EyeOff, TrendingUp, ChevronLeft, Filter } from 'lucide-react';
 import { getAssetAttributes } from '../../lib/assetUtils';
 import { convertToRON } from '../../lib/utils';
@@ -66,13 +67,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
     return 'RON';
   });
+  const [detailSaving, setDetailSaving] = React.useState<Saving | null>(null);
 
   React.useEffect(() => {
     localStorage.setItem('smartavr_display_currency', displayCurrency);
   }, [displayCurrency]);
 
   React.useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo(0, 0);
   }, [activeSubView]);
 
   React.useEffect(() => {
@@ -131,7 +133,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       onBack: () => setActiveSubView('main'),
       displayCurrency,
       onEdit,
-      onDelete
+      onDelete,
+      onViewDetails: setDetailSaving
     };
 
     if (activeSubView === 'savings-list') {
@@ -341,6 +344,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <SavingDetailModal
+        saving={detailSaving}
+        onClose={() => setDetailSaving(null)}
+      />
     </div>
   );
 };

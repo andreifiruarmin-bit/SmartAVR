@@ -22,6 +22,7 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
   const [maturityDate, setMaturityDate] = useState<string>((initialData as any)?.maturityDate || '');
   const [startDate, setStartDate] = useState<string>((initialData as any)?.startDate || new Date().toISOString().split('T')[0]);
   const [isCapitalized, setIsCapitalized] = useState<boolean>((initialData as any)?.isCapitalized || false);
+  const [autoRenewal, setAutoRenewal] = useState<boolean>((initialData as any)?.autoRenewal || false);
   const [bankName, setBankName] = useState<string>((initialData as any)?.bank || '');
 
   // Gold specific
@@ -54,6 +55,7 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
       baseData.maturityDate = maturityDate;
       if (type === SavingType.DEPOSIT) {
         baseData.isCapitalized = isCapitalized;
+        baseData.autoRenewal = autoRenewal;
         baseData.bank = bankName;
       }
     } else if (type === SavingType.GOLD) {
@@ -178,20 +180,23 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
                   </div>
 
                   <div className="flex gap-2 pb-2">
-                    {[1, 3, 6, 12, 24, 36].map(m => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => {
-                          const base = startDate ? new Date(startDate) : new Date();
-                          base.setMonth(base.getMonth() + m);
-                          setMaturityDate(base.toISOString().split('T')[0]);
-                        }}
-                        className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-400 transition-colors"
-                      >
-                        {m} LUNI
-                      </button>
-                    ))}
+                    {[1, 2, 4, 6, 12, 24].map(m => {
+                      const label = m === 1 ? '1 LUNĂ' : m === 12 ? '1 AN' : m === 24 ? '2 ANI' : `${m} LUNI`;
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => {
+                            const base = startDate ? new Date(startDate) : new Date();
+                            base.setMonth(base.getMonth() + m);
+                            setMaturityDate(base.toISOString().split('T')[0]);
+                          }}
+                          className="text-[9px] font-bold bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-400 transition-colors"
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
@@ -233,6 +238,19 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
                         />
                         <label htmlFor="capitalized" className="text-xs font-bold text-slate-400 uppercase tracking-wide cursor-pointer select-none">
                           Se capitalizează dobânda
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-3 py-2">
+                        <input
+                          type="checkbox"
+                          id="autoRenewal"
+                          checked={autoRenewal}
+                          onChange={(e) => setAutoRenewal(e.target.checked)}
+                          className="w-5 h-5 accent-primary rounded-md cursor-pointer"
+                        />
+                        <label htmlFor="autoRenewal" className="text-xs font-bold text-slate-400 uppercase tracking-wide cursor-pointer select-none">
+                          Autoprelungire la dobânda curentă
                         </label>
                       </div>
                     </>

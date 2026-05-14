@@ -13,11 +13,12 @@ import { cn, formatCurrency, convertToRON, fetchLiveRates } from './lib/utils';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { SavingsList } from './components/SavingsList';
 import { AddSavingModal } from './components/AddSavingModal';
+import { SavingDetailModal } from './components/SavingDetailModal';
 import { DashboardSettingsModal } from './components/dashboard/DashboardSettingsModal';
 import { LegalModal } from './components/LegalModal';
 import { Auth } from './components/Auth';
-import { Navigation } from './components/Navigation';
 import { useUserProfile } from './hooks/useUserProfile';
+import { useMaturityNotifications } from './hooks/useMaturityNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings } from 'lucide-react';
 
@@ -26,16 +27,19 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [savings, setSavings] = useState<Saving[]>([]);
   const [savingsLoading, setSavingsLoading] = useState(true);
+  const maturityNotifications = useMaturityNotifications(savings);
   const [rates, setRates] = useState<Record<string, number>>(DEFAULT_RATES);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'terms' | 'privacy' | 'gdpr' }>({ isOpen: false, type: 'terms' });
   const [editingSaving, setEditingSaving] = useState<Saving | null>(null);
+  const [detailSaving, setDetailSaving] = useState<Saving | null>(null);
   const [listFilter, setListFilter] = useState<{ type?: SavingType; currency?: Currency } | null>(null);
   const { preferences, updateCardVisibility, updateDisplayCurrency } = useUserProfile(user?.id);
   const cardVisibility = preferences.cardVisibility;
   const setCardVisibility = updateCardVisibility;
+  const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
 
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -340,7 +344,7 @@ export default function App() {
   const userSavingTypes = Array.from(new Set(savings.map(s => s.type)));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-24 md:pb-12 relative overflow-x-hidden transition-colors dark:bg-black dark:text-slate-200">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-10 relative overflow-x-hidden transition-colors dark:bg-black dark:text-slate-200">
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-primary/3 rounded-full blur-[120px]" />
@@ -376,6 +380,14 @@ export default function App() {
               >
                 {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
+              
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="p-2 md:p-2.5 text-slate-500 dark:text-slate-400 hover:text-primary transition-all rounded-xl hover:bg-white dark:hover:bg-slate-700 shadow-sm md:shadow-none"
+                title="Adaugă Activ"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
             </div>
             
             <div className="hidden lg:flex items-center gap-3 bg-white dark:bg-slate-800 p-1.5 pr-4 rounded-full shadow-sm border border-slate-200 dark:border-slate-700">
@@ -393,7 +405,7 @@ export default function App() {
               <button 
                 onClick={() => supabase.auth.signOut()}
                 className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-full text-slate-400 hover:text-red-500 transition-colors ml-2"
-                title="Deconectare"
+                aria-label="Deconectare"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -402,16 +414,26 @@ export default function App() {
             <motion.button
               whileHover={typeof window !== 'undefined' && window.innerWidth > 768 ? { scale: 1.05 } : undefined}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 bg-primary text-white px-4 md:px-6 py-2.5 rounded-xl md:rounded-full text-sm font-bold md:hover:opacity-90 transition-colors shadow-lg shadow-primary/20"
+              onClick={() => setActiveTab(activeTab === 'dashboard' ? 'list' : 'dashboard')}
+              className="flex items-center gap-2 bg-slate-900 dark:bg-primary text-white px-4 md:px-6 py-2.5 rounded-xl md:rounded-full text-sm font-bold md:hover:opacity-90 transition-colors shadow-lg shadow-slate-900/20 dark:shadow-primary/20"
             >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Adaugă</span>
+              {activeTab === 'dashboard' ? (
+                <>
+                  <List className="w-5 h-5" />
+                  <span className="hidden md:inline">Listă Active</span>
+                </>
+              ) : (
+                <>
+                  <PieChartIcon className="w-5 h-5" />
+                  <span className="hidden md:inline">Dashboard</span>
+                </>
+              )}
             </motion.button>
 
             <button 
               onClick={() => supabase.auth.signOut()}
               className="lg:hidden p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-400"
+              aria-label="Deconectare"
             >
               <LogOut className="w-5 h-5" />
             </button>
@@ -419,7 +441,41 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-32 relative z-10">
+      {maturityNotifications.length > 0 && (
+        <div className="space-y-2 px-4 pt-4">
+          {maturityNotifications
+            .filter(n => !dismissedNotifications.has(n.deposit.id))
+            .map(notification => (
+              <div
+                key={notification.deposit.id}
+                className={cn(
+                  "rounded-2xl p-4 shadow-lg border relative",
+                  notification.type === 'matured'
+                    ? "bg-amber-500/10 border-amber-500/30"
+                    : "bg-blue-500/10 border-blue-500/30"
+                )}
+              >
+                <button
+                  onClick={() => setDismissedNotifications(prev => new Set([...prev, notification.deposit.id]))}
+                  className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  <Plus className="w-4 h-4 rotate-45" />
+                </button>
+                <h3 className="text-sm font-bold mb-1">
+                  {notification.type === 'matured' ? '⚠️ Depozit ajuns la scadență' : '📅 Scadență apropiată'}
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  {notification.type === 'matured'
+                    ? `Depozitul "${notification.deposit.name}" a ajuns la scadență. Dobânda netă estimată: ${formatCurrency(notification.netInterest, notification.deposit.currency)}. Suma este disponibilă în rezerva cash.`
+                    : `Depozitul "${notification.deposit.name}" expiră în ${notification.daysUntilMaturity} zile. Dobânda netă estimată: ${formatCurrency(notification.netInterest, notification.deposit.currency)}.`
+                  }
+                </p>
+              </div>
+            ))}
+        </div>
+      )}
+
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 pb-10 relative z-10">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' ? (
             <motion.div
@@ -455,6 +511,7 @@ export default function App() {
                 savings={filteredSavings} 
                 onDelete={deleteSaving}
                 onEdit={handleEdit}
+                onViewDetails={setDetailSaving}
                 filter={listFilter}
                 onClearFilter={clearFilters}
               />
@@ -463,11 +520,6 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      <Navigation 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        onAddClick={() => setIsModalOpen(true)} 
-      />
 
       <AddSavingModal
         isOpen={isModalOpen}
@@ -491,6 +543,11 @@ export default function App() {
         isOpen={legalModal.isOpen}
         type={legalModal.type}
         onClose={() => setLegalModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <SavingDetailModal
+        saving={detailSaving}
+        onClose={() => setDetailSaving(null)}
       />
     </div>
   );

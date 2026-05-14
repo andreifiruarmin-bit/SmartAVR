@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, TrendingUp, Layers, FileText, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Layers, FileText, Edit2, Trash2, Eye } from 'lucide-react';
 import { Saving, SavingType, Currency } from '../../../types';
 import { convertToRON } from '../../../lib/utils';
 import { PieChartWithLegend } from '../cards/PieChartWithLegend';
@@ -12,6 +12,7 @@ interface EquitiesSubMenuProps {
   displayCurrency: Currency;
   onEdit: (saving: Saving) => void;
   onDelete: (id: string) => void;
+  onViewDetails: (saving: Saving) => void;
 }
 
 const COLORS = ['#f43e01', '#6366f1', '#f59e0b', '#10b981', '#1e293b', '#94a3b8'];
@@ -22,7 +23,8 @@ export const EquitiesSubMenu: React.FC<EquitiesSubMenuProps> = ({
   onBack, 
   displayCurrency,
   onEdit,
-  onDelete
+  onDelete,
+  onViewDetails
 }) => {
   const [filterType, setFilterType] = React.useState<string | null>(null);
   const [activeSlice, setActiveSlice] = React.useState<string | null>(null);
@@ -84,6 +86,7 @@ export const EquitiesSubMenu: React.FC<EquitiesSubMenuProps> = ({
         <button 
           onClick={onBack}
           className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-primary transition-all"
+          aria-label="Înapoi"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -150,14 +153,23 @@ export const EquitiesSubMenu: React.FC<EquitiesSubMenuProps> = ({
                 
                 <div className="flex items-center gap-2 transition-all">
                   <button 
+                    onClick={() => onViewDetails(s)}
+                    className="p-2 bg-slate-100 dark:bg-slate-800 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                    aria-label="Vezi detalii"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  <button 
                     onClick={() => onEdit(s)}
                     className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-900 dark:hover:bg-primary hover:text-white transition-all shadow-sm"
+                    aria-label="Editează"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button 
                     onClick={() => handleDelete(s.id, s.name)}
                     className="p-2 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                    aria-label="Șterge"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

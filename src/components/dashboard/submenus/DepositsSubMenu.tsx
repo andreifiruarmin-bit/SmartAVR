@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Landmark, TrendingUp, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Landmark, TrendingUp, Edit2, Trash2, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { Saving, SavingType, Currency } from '../../../types';
 import { convertToRON, formatCurrency, cn } from '../../../lib/utils';
 import { PieChartWithLegend } from '../cards/PieChartWithLegend';
@@ -12,6 +12,7 @@ interface DepositsSubMenuProps {
   displayCurrency: Currency;
   onEdit: (saving: Saving) => void;
   onDelete: (id: string) => void;
+  onViewDetails: (saving: Saving) => void;
 }
 
 const COLORS = ['#f43e01', '#10b981', '#f59e0b', '#6366f1', '#1e293b', '#94a3b8'];
@@ -22,7 +23,8 @@ export const DepositsSubMenu: React.FC<DepositsSubMenuProps> = ({
   onBack, 
   displayCurrency,
   onEdit,
-  onDelete
+  onDelete,
+  onViewDetails
 }) => {
   const [filterCurrency, setFilterCurrency] = React.useState<string | null>(null);
   const [filterBank, setFilterBank] = React.useState<string | null>(null);
@@ -91,6 +93,7 @@ export const DepositsSubMenu: React.FC<DepositsSubMenuProps> = ({
         <button 
           onClick={onBack}
           className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-primary transition-all"
+          aria-label="Înapoi"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -161,6 +164,7 @@ export const DepositsSubMenu: React.FC<DepositsSubMenuProps> = ({
               "p-2 bg-white/80 dark:bg-slate-900/80 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-primary transition-all pointer-events-auto active:scale-90",
               activeChartIndex === 0 && "opacity-0 invisible"
             )}
+            aria-label="Grafic valute"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -170,6 +174,7 @@ export const DepositsSubMenu: React.FC<DepositsSubMenuProps> = ({
               "p-2 bg-white/80 dark:bg-slate-900/80 rounded-full shadow-lg border border-slate-100 dark:border-slate-800 text-slate-400 hover:text-primary transition-all pointer-events-auto active:scale-90",
               activeChartIndex === 1 && "opacity-0 invisible"
             )}
+            aria-label="Grafic bănci"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -185,6 +190,7 @@ export const DepositsSubMenu: React.FC<DepositsSubMenuProps> = ({
                 "w-2 h-2 rounded-full transition-all duration-300",
                 activeChartIndex === idx ? "bg-primary w-6" : "bg-slate-200 dark:bg-slate-800"
               )}
+              aria-label={idx === 0 ? "Grafic valute" : "Grafic bănci"}
             />
           ))}
         </div>
@@ -239,14 +245,23 @@ export const DepositsSubMenu: React.FC<DepositsSubMenuProps> = ({
 
               <div className="flex items-center gap-2 transition-all">
                 <button 
+                  onClick={() => onViewDetails(s)}
+                  className="p-2 bg-slate-100 dark:bg-slate-800 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                  aria-label="Vezi detalii"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+                <button 
                   onClick={() => onEdit(s)}
                    className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-900 dark:hover:bg-primary hover:text-white transition-all shadow-sm"
+                   aria-label="Editează"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button 
                    onClick={() => handleDelete(s.id, s.name)}
                    className="p-2 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                   aria-label="Șterge"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

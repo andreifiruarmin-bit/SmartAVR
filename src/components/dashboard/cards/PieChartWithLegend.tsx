@@ -49,38 +49,46 @@ export const PieChartWithLegend: React.FC<PieChartWithLegendProps> = ({
 
   const activeSlice = externalSelectedSlice !== undefined ? externalSelectedSlice : internalActiveSlice;
 
-  const handleClick = (entry: any, e?: React.MouseEvent) => {
+  // Ref always holds the current activeSlice value — used inside handlers
+  // to avoid stale closure when Recharts caches SVG path event handlers
+  const activeSliceRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    activeSliceRef.current = activeSlice;
+  });
+
+  // Ref for callbacks so the outside-click effect needs zero dependencies
+  const onSliceClickRef = React.useRef(onSliceClick);
+  const onDoubleClickRef = React.useRef(onDoubleClick);
+  React.useEffect(() => {
+    onSliceClickRef.current = onSliceClick;
+    onDoubleClickRef.current = onDoubleClick;
+  });
+
+  const handleClick = React.useCallback((entry: PieChartData) => {
     if (!entry || !entry.name) return;
-    if (e && e.stopPropagation) e.stopPropagation();
-    
     const name = entry.name;
-    
-    if (activeSlice === name) {
-      // Second click on the same slice: trigger confirmed action (filtering/drill-down)
-      onDoubleClick?.(entry);
+    const current = activeSliceRef.current;
+
+    if (current === name) {
+      onDoubleClickRef.current?.(entry);
     } else {
-      // First click: select and highlight vizually only
       setInternalActiveSlice(name);
-      onSliceClick?.(entry);
+      onSliceClickRef.current?.(entry);
     }
-  };
+  }, []); // no deps — reads live values from refs
 
   // Listen for clicks outside to reset visual selection
   React.useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      // If we don't have an active slice, nothing to reset
-      if (activeSlice === null) return;
-      
-      // If click is outside the entire component container, reset
+      if (activeSliceRef.current === null) return;
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setInternalActiveSlice(null);
-        onSliceClick?.(null);
+        onSliceClickRef.current?.(null);
       }
     };
-
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [activeSlice, onSliceClick]);
+  }, []); // empty — uses refs, never stale, attached once
 
   const totalValue = useMemo(() => data.reduce((a, b) => a + b.value, 0), [data]);
   const memoizedData = useMemo(() => data, [data]);
@@ -120,39 +128,40 @@ export const PieChartWithLegend: React.FC<PieChartWithLegendProps> = ({
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
                 <Pie
-                data={memoizedData}
-                cx="50%"
-                cy="50%"
-                innerRadius={innerRadius}
-                outerRadius={outerRadius}
-                paddingAngle={4}
-                dataKey="value"
-                isAnimationActive={true}
-                animationDuration={600}
-                animationBegin={0}
-                animationEasing="ease-out"
-                stroke="none"
-              >
-                {memoizedData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${entry.name}-${index}`} 
-                    fill={colors[index % colors.length]}
-                    onClick={(e) => {
-                      if (e && e.stopPropagation) e.stopPropagation();
-                      handleClick(entry);
-                    }}
-                    style={{ 
-                      opacity: activeSlice === null || activeSlice === entry.name ? 1 : 0.2,
-                      filter: activeSlice === entry.name ? 'drop-shadow(0px 8px 32px rgba(0,0,0,0.3))' : 'none',
-                      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                      outline: 'none',
-                      transform: activeSlice === entry.name ? 'scale(1.05)' : 'scale(1)',
-                      transformOrigin: 'center',
-                      cursor: 'pointer'
-                    }}
-                  />
-                ))}
-              </Pie>
+  data={memoizedData}
+  cx="50%"
+  cy="50%"
+  innerRadius={innerRadius}
+  outerRadius={outerRadius}
+  paddingAngle={4}
+  dataKey="value"
+  isAnimationActive={true}
+  animationDuration={600}
+  animationBegin={0}
+  animationEasing="ease-out"
+  stroke="none"
+>
+  {memoizedData.map((entry, index) => (
+    <Cell 
+      key={`cell-${entry.name}-${index}`} 
+      fill={colors[index % colors.length]}
+      onClick={(e) => {
+        // This is the critical fix:
+        if (e && e.stopPropagation) e.stopPropagation();
+        handleClick(entry);
+      }}
+      style={{ 
+        opacity: activeSlice === null || activeSlice === entry.name ? 1 : 0.2,
+        filter: activeSlice === entry.name ? 'drop-shadow(0px 8px 32px rgba(0,0,0,0.3))' : 'none',
+        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+        outline: 'none',
+        transform: activeSlice === entry.name ? 'scale(1.05)' : 'scale(1)',
+        transformOrigin: 'center',
+        cursor: 'pointer'
+      }}
+    />
+  ))}
+</Pie>
               {!isMobile && (
                 <Tooltip 
                   content={<CustomTooltip />} 

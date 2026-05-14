@@ -27,6 +27,7 @@ export interface BankDeposit extends BaseSaving {
   interestRate: number;
   maturityDate: string;
   isCapitalized: boolean;
+  autoRenewal: boolean;
 }
 
 export interface CashReserve extends BaseSaving {

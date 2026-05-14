@@ -44,7 +44,7 @@ export function useUserProfile(userId: string | undefined) {
           .from('user_profiles')
           .select('default_currency')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 

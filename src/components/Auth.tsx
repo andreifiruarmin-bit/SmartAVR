@@ -176,6 +176,7 @@ export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
           <button 
             onClick={onToggleDark}
             className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-xl hover:text-primary transition-all border border-transparent hover:border-primary/20"
+            aria-label={isDark ? "Comută la modul luminos" : "Comută la modul întunecat"}
           >
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
@@ -234,6 +235,7 @@ export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 hover:text-primary transition-colors"
+                aria-label={showPassword ? "Ascunde parola" : "Arată parola"}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -258,6 +260,7 @@ export const Auth: React.FC<AuthProps> = ({ isDark, onToggleDark }) => {
                     type="button"
                     onClick={() => setShowRepeatPassword(!showRepeatPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 hover:text-primary transition-colors"
+                    aria-label={showRepeatPassword ? "Ascunde parola" : "Arată parola"}
                   >
                     {showRepeatPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

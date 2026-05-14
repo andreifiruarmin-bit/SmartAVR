@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Home, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Home, Edit2, Trash2, Eye } from 'lucide-react';
 import { Saving, SavingType, Currency } from '../../../types';
 import { convertToRON } from '../../../lib/utils';
 import { PieChartWithLegend } from '../cards/PieChartWithLegend';
@@ -12,6 +12,7 @@ interface RentSubMenuProps {
   displayCurrency: Currency;
   onEdit: (saving: Saving) => void;
   onDelete: (id: string) => void;
+  onViewDetails: (saving: Saving) => void;
 }
 
 const COLORS = ['#10b981', '#059669', '#047857', '#064e3b'];
@@ -22,7 +23,8 @@ export const RentSubMenu: React.FC<RentSubMenuProps> = ({
   onBack, 
   displayCurrency,
   onEdit,
-  onDelete
+  onDelete,
+  onViewDetails
 }) => {
   const [filterName, setFilterName] = React.useState<string | null>(null);
   const [activeSlice, setActiveSlice] = React.useState<string | null>(null);
@@ -74,6 +76,7 @@ export const RentSubMenu: React.FC<RentSubMenuProps> = ({
         <button 
           onClick={onBack}
           className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-primary transition-all"
+          aria-label="Înapoi"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -140,14 +143,23 @@ export const RentSubMenu: React.FC<RentSubMenuProps> = ({
 
               <div className="flex items-center gap-2 transition-all">
                 <button 
+                  onClick={() => onViewDetails(s)}
+                  className="p-2 bg-slate-100 dark:bg-slate-800 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                  aria-label="Vezi detalii"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+                <button 
                   onClick={() => onEdit(s)}
                   className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg md:hover:bg-slate-900 dark:md:hover:bg-primary md:hover:text-white transition-all shadow-sm active:bg-slate-900 dark:active:bg-primary active:text-white"
+                  aria-label="Editează"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button 
                   onClick={() => handleDelete(s.id, s.name)}
                   className="p-2 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-lg md:hover:bg-red-500 md:hover:text-white transition-all shadow-sm active:bg-red-500 active:text-white"
+                  aria-label="Șterge"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
