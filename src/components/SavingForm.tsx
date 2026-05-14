@@ -58,6 +58,7 @@ export const SavingForm: React.FC<SavingFormProps> = ({ onAdd, onCancel, initial
         baseData.autoRenewal = autoRenewal;
         baseData.bank = bankName;
       }
+      baseData.details.autoRenewal = autoRenewal;
     } else if (type === SavingType.GOLD) {
       baseData.details.weightInGrams = parseFloat(weight) || 0;
     } else if (type === SavingType.STOCKS || type === SavingType.ETF) {
